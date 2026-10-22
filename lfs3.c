@@ -385,6 +385,11 @@ static int lfs3_bd_read__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
             if (!(flags & LFS3_BD_RELAX) || (flags & LFS3_BD_QUERY)) {
                 lfs3->flags |= LFS3_I_DAMAGEDREAD;
             }
+
+            // report any read error as corrupt unless we're careful
+            if (!LFS3_IFDEF_CKPROGS(flags & LFS3_BD_CAREFUL, false)) {
+                return LFS3_ERR_CORRUPT;
+            }
         }
         #endif
         return err;
@@ -524,8 +529,8 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
                 // reads, we want to detect damage, but not set the
                 // damagedread flag
                 LFS3_BD_RELAX | LFS3_BD_CAREFUL);
-        if (cmp < 0 && !(
-                cmp == LFS3_ERR_CORRUPT
+        if (cmp < 0
+                && !(cmp == LFS3_ERR_CORRUPT
                     || LFS3_IFDEF_REPAIR(cmp == LFS3_ERR_DAMAGED, false)
                     || LFS3_IFDEF_CONDEMN(cmp == LFS3_ERR_CONDEMNED, false)
                     || LFS3_IFDEF_CONDEMN(cmp == LFS3_ERR_BAD, false))) {
@@ -541,8 +546,8 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
             // yet, though it is hard to know at this level
             #ifdef LFS3_CONDEMN
             if ((LFS3_CFG_ISCONDEMNDAMAGE(lfs3->cfg)
-                        || err == LFS3_ERR_CONDEMNED
-                        || err == LFS3_ERR_BAD)
+                        || cmp == LFS3_ERR_CONDEMNED
+                        || cmp == LFS3_ERR_BAD)
                     && (lfs3->flags & LFS3_I_GBMAP)) {
                 // we don't care about meta vs data for progs
                 lfs3_evict_push(lfs3, block, LFS3_EVICT_BAD);
@@ -553,8 +558,8 @@ static int lfs3_bd_prog__(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
             lfs3->flags |= LFS3_I_DAMAGEDPROG
                     | LFS3_IFDEF_CONDEMN(
                         ((LFS3_CFG_ISCONDEMNDAMAGE(lfs3->cfg)
-                                    || err == LFS3_ERR_CONDEMNED
-                                    || err == LFS3_ERR_BAD)
+                                    || cmp == LFS3_ERR_CONDEMNED
+                                    || cmp == LFS3_ERR_BAD)
                                 && (lfs3->flags & LFS3_I_GBMAP))
                             ? LFS3_I_CONDEMNED
                             : 0,

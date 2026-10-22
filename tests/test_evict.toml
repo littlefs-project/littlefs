@@ -7005,23 +7005,26 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0]
 # force early relocations, this will cause the mroot anchor to extend
 defines.BLOCK_RECYCLES = 0
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7096,7 +7099,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -7127,23 +7130,26 @@ code = '''
 [cases.test_evict_repair_t_mrootanchor]
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 1]
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7217,23 +7223,26 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7323,7 +7332,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -7356,23 +7365,26 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7502,7 +7514,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -7535,23 +7547,26 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 2]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -7672,7 +7687,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -7710,23 +7725,26 @@ code = '''
 [cases.test_evict_repair_t_mdir_mtree]
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 2, 4]
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -7848,7 +7866,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -7893,23 +7911,26 @@ code = '''
 [cases.test_evict_repair_t_mdir_mtree_split]
 defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0, 2, 4, 6]
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 in = 'lfs3.c'
 code = '''
     lfs3_t lfs3;
@@ -8099,23 +8120,26 @@ code = '''
 defines.SIZE = 'FCACHE_SIZE/2'
 # force early relocations
 defines.BLOCK_RECYCLES = 0
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8208,7 +8232,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -8249,23 +8273,26 @@ defines.SMACK = 20
 defines.SIBLING = [0, 1, 2]
 # force early relocations
 defines.BLOCK_RECYCLES = 0
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8395,7 +8422,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -8437,23 +8464,26 @@ defines.CLOSE = [false, true]
 defines.SIBLING = [0]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8543,7 +8573,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -8585,23 +8615,26 @@ defines.CLOSE = [false, true]
 defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8729,7 +8762,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -8771,23 +8804,26 @@ defines.CLOSE = [false, true]
 defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -8915,7 +8951,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -8956,23 +8992,26 @@ defines.HANDLESET = 'range(0x8)'
 defines.SIBLING = [0]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -9071,7 +9110,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -9185,23 +9224,26 @@ defines.HANDLESET = 'range(0x8)'
 defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -9339,7 +9381,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -9453,23 +9495,26 @@ defines.HANDLESET = 'range(0x8)'
 defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -9607,7 +9652,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -9719,25 +9764,26 @@ code = '''
 defines.CHUNK = 'BLOCK_SIZE'
 defines.SIZE = ['1*CHUNK', '3*CHUNK', '20*CHUNK']
 defines.SYNC = [false, true]
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
     'GBMAP',
-    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
 ]
 code = '''
     lfs3_t lfs3;
@@ -9820,7 +9866,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -9906,25 +9952,26 @@ code = '''
 defines.CHUNK = 'BLOCK_SIZE'
 defines.SYNC = [false, true]
 defines.SIBLING = [0, 1, 2]
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
     'GBMAP',
-    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
 ]
 in = 'lfs3.c'
 code = '''
@@ -10050,7 +10097,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -10137,25 +10184,26 @@ defines.CHUNK = 'BLOCK_SIZE'
 defines.SIZE = ['1*CHUNK', '3*CHUNK', '20*CHUNK']
 # need to disable shrubs to avoid accidental gbmap syncs
 defines.SHRUB_SIZE = -1
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
     'GBMAP',
-    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
 ]
 code = '''
     lfs3_t lfs3;
@@ -10289,7 +10337,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -10370,25 +10418,26 @@ defines.CHUNK = 'BLOCK_SIZE'
 defines.SIBLING = [0, 1, 2]
 # need to disable shrubs to avoid accidental gbmap syncs
 defines.SHRUB_SIZE = -1
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = ['LFS3_REPAIR', 'LFS3_GBMAP']
 if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
     'GBMAP',
-    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
 ]
 in = 'lfs3.c'
 code = '''
@@ -10565,7 +10614,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -10647,23 +10696,26 @@ code = '''
 [cases.test_evict_repair_t_bptr]
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -10764,7 +10816,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -10804,23 +10856,26 @@ defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
 # encourage a btree
 defines.SHRUB_SIZE = -1
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -10949,7 +11004,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -10987,23 +11042,26 @@ code = '''
 [cases.test_evict_repair_t_bptr_bshrub]
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -11132,7 +11190,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -11171,23 +11229,26 @@ code = '''
 [cases.test_evict_repair_t_bptr_dag]
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -11304,7 +11365,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -11361,26 +11422,27 @@ code = '''
 #
 [cases.test_evict_repair_t_bptr_erased]
 defines.SYNC = [false, true]
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
     # is half a block prog aligned?
     '(BLOCK_SIZE/2) % PROG_SIZE == 0',
-    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
 ]
 in = 'lfs3.c'
 code = '''
@@ -11475,7 +11537,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -11531,25 +11593,26 @@ defines.SIZE = [
 ]
 defines.HANDLESET = 'range(0x8)'
 defines.SIBLING = [0, 1, 2, 3]
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
     'SIBLING < SIZE/BLOCK_SIZE',
-    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
 ]
 code = '''
     lfs3_t lfs3;
@@ -11663,7 +11726,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -11787,25 +11850,26 @@ defines.DELTA = [
 ]
 defines.DESYNC = [false, true]
 defines.SIBLING = [0, 1, 2, 3]
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
     'SIBLING < SIZE/BLOCK_SIZE',
-    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
 ]
 code = '''
     lfs3_t lfs3;
@@ -11934,7 +11998,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -12059,26 +12123,27 @@ defines.N = 4
 defines.DELTA = ['+2*CHUNK', '+1*CHUNK', '-1*CHUNK', '-2*CHUNK']
 defines.DESYNC = [false, true]
 defines.SIBLING = [0]
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
     # is a chunk prog aligned?
     'CHUNK % PROG_SIZE == 0',
-    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
 ]
 code = '''
     lfs3_t lfs3;
@@ -12207,7 +12272,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -12337,23 +12402,26 @@ defines.SIZE = 'FCACHE_SIZE/2'
 defines.SIBLING = [0]
 # force early relocations, this will cause the mroot anchor to extend
 defines.BLOCK_RECYCLES = 0
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -12566,7 +12634,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -12605,23 +12673,26 @@ defines.CLOSE = [false, true]
 defines.SIBLING = [0]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -12807,7 +12878,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -12853,23 +12924,26 @@ defines.CLOSE = [false, true]
 defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -13063,7 +13137,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -13105,23 +13179,26 @@ code = '''
 defines.CALLS = [0, 1, 2]
 defines.SYNC = [false, true]
 defines.CLOSE = [false, true]
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -13338,7 +13415,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -13384,23 +13461,26 @@ defines.SYNC = [false, true]
 defines.SIBLING = [0]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -13539,7 +13619,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -13584,24 +13664,25 @@ defines.SYNC = [false, true]
 defines.SIBLING = [0, 1, 2]
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = [
-    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
     # avoid trying to repair the gbmap
     '!GBMAP || SIBLING != 0',
 ]
@@ -13774,7 +13855,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -13815,23 +13896,26 @@ code = '''
 # CALLS=2 => lfs3_file_ck + lfs3_file_ck
 defines.CALLS = [0, 1, 2]
 defines.SYNC = [false, true]
-# CONDEMN=0 => don't condemn
-# CONDEMN=1 => condemn damage (LFS3_DAMAGE_CONDEMNDAMAGE)
-# CONDEMN=2 => condemn condemned (LFS3_EMUBD_BADBLOCK_READCONDEMNED)
-defines.CONDEMN = [0, 1, 2]
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = '''
-    ((CONDEMN == 2)
-        ? LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)
-        : LFS3_EMUBD_BADBLOCK_READDAMAGED)
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
+defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
 '''
 defines.DAMAGE_FLAGS = '''
-    ((CONDEMN == 1)
-        ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1)
-        : 0)
+    ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -13997,7 +14081,7 @@ code = '''
 
     // if bad, evicted block should be marked as bad
     #ifdef LFS3_GBMAP
-    if (CONDEMN) {
+    if (CONDEMNED) {
         struct lfs3_binfo binfo;
         lfs3_fs_statblock(&lfs3, victim, &binfo) => 0;
         assert(binfo.btype == LFS3_BTYPE_BAD);
@@ -18175,13 +18259,25 @@ defines.SIZE = 'N*BLOCK_SIZE'
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -18265,9 +18361,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // ckmeta cleared! not ckdata
@@ -18278,7 +18376,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)));
 
     // now try fixing the damage
     lfs3_gc_open(&lfs3, &gc, LFS3_GC_REPAIRMETA) => 0;
@@ -18302,9 +18402,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // ckmeta cleared! not ckdata
@@ -18314,7 +18416,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)));
 
     // reopen if necessary
     if (CLOSE) {
@@ -18354,13 +18458,25 @@ defines.CLOSE = [false, true]
 defines.N = 1
 defines.SIZE = 'N*BLOCK_SIZE'
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -18441,9 +18557,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // both ckmeta/ckdata cleared!
@@ -18453,7 +18571,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)));
 
     // now try fixing the damage
     lfs3_gc_open(&lfs3, &gc, LFS3_GC_REPAIRDATA) => 0;
@@ -18477,9 +18597,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // both ckmeta/ckdata cleared!
@@ -18488,7 +18610,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)));
 
     // reopen if necessary
     if (CLOSE) {
@@ -18530,13 +18654,25 @@ defines.SIZE = 'N*BLOCK_SIZE'
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -18620,9 +18756,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // ckmeta cleared! not ckdata
@@ -18633,7 +18771,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
                 // evictqueue overflowed!
                 | LFS3_I_EVICTOVERFLOW));
 
@@ -18659,9 +18799,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // ckmeta cleared! not ckdata
@@ -18671,7 +18813,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
                 // evictqueue overflowed!
                 | LFS3_I_EVICTOVERFLOW));
 
@@ -18713,13 +18857,25 @@ defines.CLOSE = [false, true]
 defines.N = ['EVICTQUEUE_COUNT+1', 'EVICTQUEUE_COUNT*2']
 defines.SIZE = 'N*BLOCK_SIZE'
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -18800,9 +18956,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // both ckmeta/ckdata cleared!
@@ -18812,7 +18970,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
                 // evictqueue overflowed!
                 | LFS3_I_EVICTOVERFLOW));
 
@@ -18838,9 +18998,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // both ckmeta/ckdata cleared!
@@ -18849,7 +19011,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
                 // evictqueue overflowed!
                 | LFS3_I_EVICTOVERFLOW));
 
@@ -18892,13 +19056,25 @@ defines.SIZE = 'N*BLOCK_SIZE'
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -18977,9 +19153,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -18990,7 +19168,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)));
 
     // now try fixing the damage
     lfs3_gc_t gc;
@@ -19015,9 +19195,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -19027,7 +19209,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -19061,13 +19245,25 @@ defines.SYNC = [false, true]
 defines.N = 1
 defines.SIZE = 'N*BLOCK_SIZE'
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -19143,9 +19339,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -19156,7 +19354,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)));
 
     // now try fixing the damage
     lfs3_gc_t gc;
@@ -19181,9 +19381,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -19193,7 +19395,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -19229,13 +19433,25 @@ defines.SIZE = 'N*BLOCK_SIZE'
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -19314,9 +19530,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -19327,7 +19545,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
                 // evictqueue overflowed!
                 | LFS3_I_EVICTOVERFLOW));
 
@@ -19354,9 +19574,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -19366,7 +19588,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
                 // evictqueue overflowed!
                 | LFS3_I_EVICTOVERFLOW));
 
@@ -19402,13 +19626,25 @@ defines.SYNC = [false, true]
 defines.N = ['EVICTQUEUE_COUNT+1', 'EVICTQUEUE_COUNT*2']
 defines.SIZE = 'N*BLOCK_SIZE'
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -19484,9 +19720,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -19497,7 +19735,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
                 // evictqueue overflowed!
                 | LFS3_I_EVICTOVERFLOW));
 
@@ -19524,9 +19764,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -19536,7 +19778,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
                 // evictqueue overflowed!
                 | LFS3_I_EVICTOVERFLOW));
 
@@ -19576,20 +19820,48 @@ defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_PROGCONDEMNED, -1)',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_PROGBAD, -1)',
     'LFS3_EMUBD_BADBLOCK_ERASEDAMAGED',
-    # this needs ckprogs
+    'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_ERASECONDEMNED, -1)',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_ERASEBAD, -1)',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCORRUPT',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READBAD, -1)',
 ]
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READBAD,
+            false)
+'''
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGCONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASECONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READBAD,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_DAMAGE_CKPROGS, -1) : 0)
         | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = [
+    'BADBLOCK_BEHAVIOR != -1',
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
 ]
 code = '''
     lfs3_t lfs3;
@@ -19640,7 +19912,7 @@ code = '''
 
     // we should _not_ have an entry in our evictqueue (uh, if not
     // condemning)
-    assert(lfs3.evictqueue.count == ((CONDEMN) ? N : 0));
+    assert(lfs3.evictqueue.count == ((CONDEMNED) ? N : 0));
 
     // this should _not_ set LFS3_I_REPAIRMETA (uh, if not condemning),
     // we found damage, but we should just route around it
@@ -19648,20 +19920,24 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 // ok, so we do set LFS3_I_REPAIRMETA, but only if condemned
-                | ((CONDEMN) ? LFS3_I_REPAIRMETA : 0)
+                | ((CONDEMNED) ? LFS3_I_REPAIRMETA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDPROG
                 // but we do set condemned! well, if we're condemning
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -19699,20 +19975,48 @@ defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_PROGCONDEMNED, -1)',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_PROGBAD, -1)',
     'LFS3_EMUBD_BADBLOCK_ERASEDAMAGED',
-    # this needs ckprogs
+    'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_ERASECONDEMNED, -1)',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_ERASEBAD, -1)',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCORRUPT',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READBAD, -1)',
 ]
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READBAD,
+            false)
+'''
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGCONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASECONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READBAD,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_DAMAGE_CKPROGS, -1) : 0)
         | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = [
+    'BADBLOCK_BEHAVIOR != -1',
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
 ]
 code = '''
     lfs3_t lfs3;
@@ -19763,7 +20067,7 @@ code = '''
 
     // we should _not_ have an entry in our evictqueue (uh, if not
     // condemning)
-    assert(lfs3.evictqueue.count == ((CONDEMN) ? EVICTQUEUE_COUNT : 0));
+    assert(lfs3.evictqueue.count == ((CONDEMNED) ? EVICTQUEUE_COUNT : 0));
 
     // this should _not_ set LFS3_I_REPAIRMETA (uh, if not condemning),
     // we found damage, but we should just route around it
@@ -19771,22 +20075,26 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
                 | LFS3_I_CKDATA
                 // ok, so we do set LFS3_I_REPAIRMETA, but only if condemned
-                | ((CONDEMN) ? LFS3_I_REPAIRMETA : 0)
+                | ((CONDEMNED) ? LFS3_I_REPAIRMETA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDPROG
                 // but we do set condemned! well, if we're condemning
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
                 // only set LFS3_I_EVICTOVERFLOW if condemning!
-                | ((CONDEMN) ? LFS3_I_EVICTOVERFLOW : 0)));
+                | ((CONDEMNED) ? LFS3_I_EVICTOVERFLOW : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -19822,20 +20130,48 @@ defines.SIZE = 'N*BLOCK_SIZE'
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_PROGCONDEMNED, -1)',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_PROGBAD, -1)',
     'LFS3_EMUBD_BADBLOCK_ERASEDAMAGED',
-    # this needs ckprogs
+    'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_ERASECONDEMNED, -1)',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_ERASEBAD, -1)',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCORRUPT',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READBAD, -1)',
 ]
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READBAD,
+            false)
+'''
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGCONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASECONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READBAD,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_DAMAGE_CKPROGS, -1) : 0)
         | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = [
+    'BADBLOCK_BEHAVIOR != -1',
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
 ]
 code = '''
     lfs3_t lfs3;
@@ -19886,7 +20222,7 @@ code = '''
 
     // we should _not_ have an entry in our evictqueue (uh, if not
     // condemning)
-    assert(lfs3.evictqueue.count == ((CONDEMN) ? N : 0));
+    assert(lfs3.evictqueue.count == ((CONDEMNED) ? N : 0));
 
     // this should _not_ set LFS3_I_REPAIRMETA (uh, if not condemning),
     // we found damage, but we should just route around it
@@ -19894,9 +20230,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -19904,12 +20242,14 @@ code = '''
                 // ok, so we do set LFS3_I_REPAIRMETA, but only if condemned
                 //
                 // this is not a typo! we always treat progs as metadata
-                | ((CONDEMN) ? LFS3_I_REPAIRMETA : 0)
+                | ((CONDEMNED) ? LFS3_I_REPAIRMETA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDPROG
                 // but we do set condemned! well, if we're condemning
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -19945,20 +20285,48 @@ defines.SIZE = 'N*BLOCK_SIZE'
 # report as damaged to request repairs
 defines.BADBLOCK_BEHAVIOR = [
     'LFS3_EMUBD_BADBLOCK_PROGDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_PROGCONDEMNED, -1)',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_PROGBAD, -1)',
     'LFS3_EMUBD_BADBLOCK_ERASEDAMAGED',
-    # this needs ckprogs
+    'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_ERASECONDEMNED, -1)',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_ERASEBAD, -1)',
+    # these need ckprogs
     'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCORRUPT',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READBAD, -1)',
 ]
-defines.CKPROGS = 'BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READBAD,
+            false)
+'''
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGCONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGBAD
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASECONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEBAD
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+                || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READBAD,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_DAMAGE_CKPROGS, -1) : 0)
         | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
 if = [
+    'BADBLOCK_BEHAVIOR != -1',
     'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
-    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
 ]
 code = '''
     lfs3_t lfs3;
@@ -20009,7 +20377,7 @@ code = '''
 
     // we should _not_ have an entry in our evictqueue (uh, if not
     // condemning)
-    assert(lfs3.evictqueue.count == ((CONDEMN) ? EVICTQUEUE_COUNT : 0));
+    assert(lfs3.evictqueue.count == ((CONDEMNED) ? EVICTQUEUE_COUNT : 0));
 
     // this should _not_ set LFS3_I_REPAIRMETA (uh, if not condemning),
     // we found damage, but we should just route around it
@@ -20017,9 +20385,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 | LFS3_I_CKMETA
@@ -20027,14 +20397,16 @@ code = '''
                 // ok, so we do set LFS3_I_REPAIRMETA, but only if condemned
                 //
                 // this is not a typo! we always treat progs as metadata
-                | ((CONDEMN) ? LFS3_I_REPAIRMETA : 0)
+                | ((CONDEMNED) ? LFS3_I_REPAIRMETA : 0)
                 | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_I_GBMAP, -1) : 0)
                 // damaged set!
                 | LFS3_I_DAMAGEDPROG
                 // but we do set condemned! well, if we're condemning
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
                 // only set LFS3_I_EVICTOVERFLOW if condemning!
-                | ((CONDEMN) ? LFS3_I_EVICTOVERFLOW : 0)));
+                | ((CONDEMNED) ? LFS3_I_EVICTOVERFLOW : 0)));
 
     // check we can still read the file
     for (int remount = 0; remount < 2; remount++) {
@@ -20073,13 +20445,25 @@ defines.SIZE = 'N*BLOCK_SIZE'
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -20163,9 +20547,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // ckmeta cleared! not ckdata
@@ -20176,13 +20562,15 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)));
 
     // now, instead of fixing, abort the repairs
     lfs3_fs_clearck(&lfs3,
             LFS3_I_REPAIRMETA
                 | ((STICKY) ? LFS3_I_DAMAGEDREAD : 0)
-                | ((STICKY && CONDEMN)
+                | ((STICKY && CONDEMNED)
                     ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
                     : 0)) => 0;
 
@@ -20193,9 +20581,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // ckmeta cleared! not ckdata
@@ -20205,7 +20595,7 @@ code = '''
                 // maybe damaged set?
                 | ((!STICKY) ? LFS3_I_DAMAGEDREAD : 0)
                 // maybe condemned set?
-                | ((!STICKY && CONDEMN)
+                | ((!STICKY && CONDEMNED)
                     ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
                     : 0)));
 
@@ -20249,13 +20639,25 @@ defines.CLOSE = [false, true]
 defines.N = 1
 defines.SIZE = 'N*BLOCK_SIZE'
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -20336,9 +20738,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // both ckmeta/ckdata cleared!
@@ -20348,13 +20752,15 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)));
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)));
 
     // now, instead of fixing, abort the repairs
     lfs3_fs_clearck(&lfs3,
             LFS3_I_REPAIRDATA
                 | ((STICKY) ? LFS3_I_DAMAGEDREAD : 0)
-                | ((STICKY && CONDEMN)
+                | ((STICKY && CONDEMNED)
                     ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
                     : 0)) => 0;
 
@@ -20365,9 +20771,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // both ckmeta/ckdata cleared!
@@ -20376,7 +20784,7 @@ code = '''
                 // maybe damaged set?
                 | ((!STICKY) ? LFS3_I_DAMAGEDREAD : 0)
                 // maybe condemned set?
-                | ((!STICKY && CONDEMN)
+                | ((!STICKY && CONDEMNED)
                     ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
                     : 0)));
 
@@ -20422,13 +20830,25 @@ defines.SIZE = 'N*BLOCK_SIZE'
 # prevent block crystallization
 defines.CRYSTAL_THRESH = -1
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -20512,9 +20932,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // ckmeta cleared! not ckdata
@@ -20525,7 +20947,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
                 // evictqueue overflowed!
                 | LFS3_I_EVICTOVERFLOW));
 
@@ -20533,7 +20957,7 @@ code = '''
     lfs3_fs_clearck(&lfs3,
             LFS3_I_REPAIRMETA
                 | ((STICKY) ? LFS3_I_DAMAGEDREAD : 0)
-                | ((STICKY && CONDEMN)
+                | ((STICKY && CONDEMNED)
                     ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
                     : 0)
                 | ((STICKY) ? LFS3_I_EVICTOVERFLOW : 0)) => 0;
@@ -20545,9 +20969,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // ckmeta cleared! not ckdata
@@ -20557,7 +20983,7 @@ code = '''
                 // maybe damaged set?
                 | ((!STICKY) ? LFS3_I_DAMAGEDREAD : 0)
                 // maybe condemned set?
-                | ((!STICKY && CONDEMN)
+                | ((!STICKY && CONDEMNED)
                     ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
                     : 0)
                 // maybe evictoverflow set?
@@ -20603,13 +21029,25 @@ defines.CLOSE = [false, true]
 defines.N = ['EVICTQUEUE_COUNT+1', 'EVICTQUEUE_COUNT*2']
 defines.SIZE = 'N*BLOCK_SIZE'
 # report as damaged to request repairs
-defines.BADBLOCK_BEHAVIOR = 'LFS3_EMUBD_BADBLOCK_READDAMAGED'
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_IFDEF_CONDEMN(LFS3_EMUBD_BADBLOCK_READCONDEMNED, -1)',
+]
 defines.CONDEMN = [false, true]
+defines.CONDEMNED = '''
+    CONDEMN
+        || LFS3_IFDEF_CONDEMN(
+            BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED,
+            false)
+'''
 defines.DAMAGE_FLAGS = '''
     ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
 '''
 ifdef = 'LFS3_REPAIR'
-if = 'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMN, !CONDEMN)'
+if = [
+    'BADBLOCK_BEHAVIOR != -1',
+    'LFS3_IFDEF_CONDEMN(GBMAP || !CONDEMNED, !CONDEMNED)',
+]
 code = '''
     lfs3_t lfs3;
     lfs3_format(&lfs3,
@@ -20690,9 +21128,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // both ckmeta/ckdata cleared!
@@ -20702,7 +21142,9 @@ code = '''
                 // damaged set!
                 | LFS3_I_DAMAGEDREAD
                 // maybe condemned set?
-                | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1) : 0)
+                | ((CONDEMNED)
+                    ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
+                    : 0)
                 // evictqueue overflowed!
                 | LFS3_I_EVICTOVERFLOW));
 
@@ -20710,7 +21152,7 @@ code = '''
     lfs3_fs_clearck(&lfs3,
             LFS3_I_REPAIRDATA
                 | ((STICKY) ? LFS3_I_DAMAGEDREAD : 0)
-                | ((STICKY && CONDEMN)
+                | ((STICKY && CONDEMNED)
                     ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
                     : 0)
                 | ((STICKY) ? LFS3_I_EVICTOVERFLOW : 0)) => 0;
@@ -20722,9 +21164,11 @@ code = '''
     lfs3_fs_stat(&lfs3, &fsinfo) => 0;
     assert(fsinfo.flags == (
             ((!GBMAP) ? LFS3_I_LOOKAHEAD : 0)
-                | ((GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
-                    ? LFS3_IFDEF_GBMAP(LFS3_I_LOOKGBMAP, -1)
-                    : 0)
+                | LFS3_IFDEF_GBMAP(
+                    (GBMAP && (fsinfo.flags & LFS3_I_LOOKGBMAP))
+                        ? LFS3_I_LOOKGBMAP
+                        : 0,
+                    0)
                 | LFS3_IFDEF_PREERASE((GBMAP) ? LFS3_I_PREERASE : 0, 0)
                 | LFS3_I_COMPACTMETA
                 // both ckmeta/ckdata cleared!
@@ -20733,7 +21177,7 @@ code = '''
                 // maybe damaged set?
                 | ((!STICKY) ? LFS3_I_DAMAGEDREAD : 0)
                 // maybe condemned set?
-                | ((!STICKY && CONDEMN)
+                | ((!STICKY && CONDEMNED)
                     ? LFS3_IFDEF_CONDEMN(LFS3_I_CONDEMNED, -1)
                     : 0)
                 // maybe evictoverflow set?
@@ -20770,3 +21214,303 @@ code = '''
     lfs3_file_close(&lfs3, &file) => 0;
     lfs3_unmount(&lfs3) => 0;
 '''
+
+
+
+# these mostly test the various ways damage can trigger block
+# condemnation
+
+[cases.test_evict_condemn_spam_dir_many]
+# report as damaged to request repairs
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_PROGDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
+    'LFS3_EMUBD_BADBLOCK_PROGCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    'LFS3_EMUBD_BADBLOCK_ERASECONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    # these need ckprogs
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCORRUPT',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READBAD',
+]
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READBAD
+'''
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASECORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+'''
+defines.DAMAGE_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_DAMAGE_CKPROGS, -1) : 0)
+        | LFS3_DAMAGE_REPAIRMETADAMAGE
+        | LFS3_DAMAGE_REPAIRDATADAMAGE
+        | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+'''
+ifdef = 'LFS3_CONDEMN'
+if = [
+    'GBMAP',
+    'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
+]
+defines.SEED = 'range(10)'
+fuzz = 'SEED'
+code = '''
+    // choose a random block to mark as bad (except mrootanchor
+    // and gbmap)
+    uint32_t prng = SEED;
+    lfs3_block_t victim = 3 + (TEST_PRNG(&prng) % (BLOCK_COUNT-3-1));
+    // mdir's not writing to spare blocks is a bit of a pain, so always
+    // mark two blocks as bad and accept either
+    lfs3_emubd_mkbad(CFG, victim+0) => 0;
+    lfs3_emubd_mkbad(CFG, victim+1) => 0;
+
+    // test creating directories
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // make directories until either condemned or ENOSPC
+    //
+    // ENOSPC indicates a test failure
+    lfs3_size_t n = 0;
+    for (;; n++) {
+        char name[256];
+        sprintf(name, "dir%03x", n);
+        int err = lfs3_mkdir(&lfs3, name);
+        assert(!err || (TEST_PLS && err == LFS3_ERR_EXIST));
+
+        // one of the blocks marked as bad?
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim+0, &binfo) => 0;
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            n += 1;
+            break;
+        }
+        lfs3_fs_statblock(&lfs3, victim+1, &binfo) => 0;
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            n += 1;
+            break;
+        }
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDONLY, CFG) => 0;
+        }
+
+        // grm should be zero here
+        assert(lfs3.grm_p[0] == 0);
+
+        // check that our mkdir worked
+        for (lfs3_size_t i = 0; i < n; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            struct lfs3_info info;
+            lfs3_stat(&lfs3, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS3_TYPE_DIR);
+            assert(info.size == 0);
+        }
+
+        lfs3_dir_t dir;
+        lfs3_dir_open(&lfs3, &dir, "/") => 0;
+        struct lfs3_info info;
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, ".") == 0);
+        assert(info.type == LFS3_TYPE_DIR);
+        assert(info.size == 0);
+        lfs3_dir_read(&lfs3, &dir, &info) => 0;
+        assert(strcmp(info.name, "..") == 0);
+        assert(info.type == LFS3_TYPE_DIR);
+        assert(info.size == 0);
+        for (lfs3_size_t i = 0; i < n; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS3_TYPE_DIR);
+            assert(info.size == 0);
+        }
+        lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+        lfs3_dir_close(&lfs3, &dir) => 0;
+
+        for (lfs3_size_t i = 0; i < n; i++) {
+            char name[256];
+            sprintf(name, "dir%03x", i);
+            lfs3_dir_open(&lfs3, &dir, name) => 0;
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
+            assert(strcmp(info.name, ".") == 0);
+            assert(info.type == LFS3_TYPE_DIR);
+            assert(info.size == 0);
+            lfs3_dir_read(&lfs3, &dir, &info) => 0;
+            assert(strcmp(info.name, "..") == 0);
+            assert(info.type == LFS3_TYPE_DIR);
+            assert(info.size == 0);
+            lfs3_dir_read(&lfs3, &dir, &info) => LFS3_ERR_NOENT;
+            lfs3_dir_close(&lfs3, &dir) => 0;
+        }
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+[cases.test_evict_condemn_spam_file_many]
+defines.N = [1, 2, 4, 8, 16, 32, 64]
+defines.SIZE = [
+    '0',
+    'FCACHE_SIZE/2',
+    '2*FCACHE_SIZE',
+    'BLOCK_SIZE/2',
+    'BLOCK_SIZE',
+    '2*BLOCK_SIZE',
+    '4*BLOCK_SIZE',
+]
+# report as damaged to request repairs
+defines.BADBLOCK_BEHAVIOR = [
+    'LFS3_EMUBD_BADBLOCK_PROGDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_PROGCORRUPT',
+    'LFS3_EMUBD_BADBLOCK_PROGCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_PROGBAD',
+    'LFS3_EMUBD_BADBLOCK_ERASEDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_ERASECORRUPT',
+    'LFS3_EMUBD_BADBLOCK_ERASECONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_ERASEBAD',
+    # these need ckprogs
+    'LFS3_EMUBD_BADBLOCK_READDAMAGED',
+    'LFS3_EMUBD_BADBLOCK_READCORRUPT',
+    'LFS3_EMUBD_BADBLOCK_READCONDEMNED',
+    'LFS3_EMUBD_BADBLOCK_READBAD',
+]
+defines.CKPROGS = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCONDEMNED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READBAD
+'''
+defines.CONDEMN = '''
+    BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_PROGCORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASEDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_ERASECORRUPT
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READDAMAGED
+        || BADBLOCK_BEHAVIOR == LFS3_EMUBD_BADBLOCK_READCORRUPT
+'''
+defines.DAMAGE_FLAGS = '''
+    ((CKPROGS) ? LFS3_IFDEF_CKPROGS(LFS3_DAMAGE_CKPROGS, -1) : 0)
+        | LFS3_DAMAGE_REPAIRMETADAMAGE
+        | LFS3_DAMAGE_REPAIRDATADAMAGE
+        | ((CONDEMN) ? LFS3_IFDEF_CONDEMN(LFS3_DAMAGE_CONDEMNDAMAGE, -1) : 0)
+'''
+ifdef = 'LFS3_CONDEMN'
+if = [
+    'GBMAP',
+    'LFS3_IFDEF_CKPROGS(true, !CKPROGS)',
+    '(SIZE*N)/BLOCK_SIZE <= 32',
+]
+defines.SEED = 'range(10)'
+fuzz = 'SEED'
+code = '''
+    // choose a random block to mark as bad (except mrootanchor
+    // and gbmap)
+    uint32_t prng = SEED;
+    lfs3_block_t victim = 3 + (TEST_PRNG(&prng) % (BLOCK_COUNT-3-1));
+    // mdir's not writing to spare blocks is a bit of a pain, so always
+    // mark two blocks as bad and accept either
+    lfs3_emubd_mkbad(CFG, victim+0) => 0;
+    lfs3_emubd_mkbad(CFG, victim+1) => 0;
+
+    // test creating files
+    lfs3_t lfs3;
+    lfs3_format(&lfs3,
+            LFS3_F_RDWR
+                | ((GBMAP) ? LFS3_IFDEF_GBMAP(LFS3_F_GBMAP, -1) : 0),
+            CFG) => 0;
+    lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+
+    // create files until either condemned or ENOSPC
+    //
+    // ENOSPC indicates a test failure
+    prng = 42;
+    lfs3_size_t n = 0;
+    for (;; n++) {
+        char name[256];
+        sprintf(name, "amethyst%03x", n);
+
+        uint8_t wbuf[SIZE];
+        for (lfs3_size_t j = 0; j < SIZE; j++) {
+            wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+        }
+
+        lfs3_file_t file;
+        lfs3_file_open(&lfs3, &file, name,
+                LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_EXCL) => 0;
+        lfs3_file_write(&lfs3, &file, wbuf, SIZE) => SIZE;
+        lfs3_file_close(&lfs3, &file) => 0;
+
+        // one of the blocks marked as bad?
+        struct lfs3_binfo binfo;
+        lfs3_fs_statblock(&lfs3, victim+0, &binfo) => 0;
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            n += 1;
+            break;
+        }
+        lfs3_fs_statblock(&lfs3, victim+1, &binfo) => 0;
+        if (binfo.btype == LFS3_BTYPE_BAD) {
+            n += 1;
+            break;
+        }
+    }
+
+    for (int remount = 0; remount < 2; remount++) {
+        // remount?
+        if (remount) {
+            lfs3_unmount(&lfs3) => 0;
+            lfs3_mount(&lfs3, LFS3_M_RDWR, CFG) => 0;
+        }
+
+        // check that our writes worked
+        prng = 42;
+        for (lfs3_size_t i = 0; i < n; i++) {
+            // check with stat
+            char name[256];
+            sprintf(name, "amethyst%03x", i);
+            struct lfs3_info info;
+            lfs3_stat(&lfs3, name, &info) => 0;
+            assert(strcmp(info.name, name) == 0);
+            assert(info.type == LFS3_TYPE_REG);
+            assert(info.size == SIZE);
+
+            // try reading the file, note we reset prng above
+            uint8_t wbuf[SIZE];
+            for (lfs3_size_t j = 0; j < SIZE; j++) {
+                wbuf[j] = 'a' + (TEST_PRNG(&prng) % 26);
+            }
+
+            lfs3_file_t file;
+            uint8_t rbuf[SIZE];
+            lfs3_file_open(&lfs3, &file, name, LFS3_O_RDONLY) => 0;
+            lfs3_file_read(&lfs3, &file, rbuf, SIZE) => SIZE;
+            assert(memcmp(rbuf, wbuf, SIZE) == 0);
+            lfs3_file_close(&lfs3, &file) => 0;
+        }
+    }
+
+    lfs3_unmount(&lfs3) => 0;
+'''
+
+
