@@ -35,57 +35,57 @@ typedef int lfs3_sbool_t;
 
 #define LFS3_CFG_ISREVPERTURB(cfg) \
     LFS3_IFYES_REVPERTURB( \
-        true, \
+        ((void)cfg, true), \
         (bool)((cfg)->rev_flags & LFS3_REV_REVPERTURB), \
-        false)
+        ((void)cfg, false))
 
 #define LFS3_CFG_ISREVNOISE(cfg) \
     LFS3_IFYES_REVNOISE( \
-        true, \
+        ((void)cfg, true), \
         (bool)((cfg)->rev_flags & LFS3_REV_REVNOISE), \
-        false)
+        ((void)cfg, false))
 
 #define LFS3_CFG_ISCKPROGS(cfg) \
     LFS3_IFYES_CKPROGS( \
-        true, \
+        ((void)cfg, true), \
         (bool)((cfg)->damage_flags & LFS3_DAMAGE_CKPROGS), \
-        false)
+        ((void)cfg, false))
 
 #define LFS3_CFG_ISCKFETCHES(cfg) \
     LFS3_IFYES_CKFETCHES( \
-        true, \
+        ((void)cfg, true), \
         (bool)((cfg)->damage_flags & LFS3_DAMAGE_CKFETCHES), \
-        false)
+        ((void)cfg, false))
 
 #define LFS3_CFG_ISCKMETAPARITY(cfg) \
     LFS3_IFYES_CKMETAPARITY( \
-        true, \
+        ((void)cfg, true), \
         (bool)((cfg)->damage_flags & LFS3_DAMAGE_CKMETAPARITY), \
-        false)
+        ((void)cfg, false))
 
 #define LFS3_CFG_ISCKDATACKSUMS(cfg) \
     LFS3_IFYES_CKDATACKSUMS( \
-        true, \
+        ((void)cfg, true), \
         (bool)((cfg)->damage_flags & LFS3_DAMAGE_CKDATACKSUMS), \
-        false)
+        ((void)cfg, false))
 
 #define LFS3_CFG_ISREPAIRMETADAMAGE(cfg) \
     LFS3_IFYES_REPAIRMETADAMAGE( \
-        true, \
+        ((void)cfg, true), \
         (bool)((cfg)->damage_flags & LFS3_DAMAGE_REPAIRMETADAMAGE), \
-        false)
+        ((void)cfg, false))
 
 #define LFS3_CFG_ISREPAIRDATADAMAGE(cfg) \
     LFS3_IFYES_REPAIRDATADAMAGE( \
-        true, \
+        ((void)cfg, true), \
         (bool)((cfg)->damage_flags & LFS3_DAMAGE_REPAIRDATADAMAGE), \
-        false)
+        ((void)cfg, false))
 
 #define LFS3_CFG_ISCONDEMNDAMAGE(cfg) \
     LFS3_IFYES_CONDEMNDAMAGE( \
-        true, \
+        ((void)cfg, true), \
         (bool)((cfg)->damage_flags & LFS3_DAMAGE_CONDEMNDAMAGE), \
-        false)
+        ((void)cfg, false))
 
 
 /// Simple bd wrappers (asserts go here) ///
