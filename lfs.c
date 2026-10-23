@@ -2388,7 +2388,10 @@ fixmlist:;
                 }
             }
 
-            while (d->id >= d->m.count && d->m.split) {
+            // a removed file keeps its null pair, moving it onto the tail
+            // would make its next sync overwrite an unrelated entry
+            while (!lfs_pair_isnull(d->m.pair) &&
+                    d->id >= d->m.count && d->m.split) {
                 // we split and id is on tail now
                 if (lfs_pair_cmp(d->m.tail, lfs->root) != 0) {
                     d->id -= d->m.count;
