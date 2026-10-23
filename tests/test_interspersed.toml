@@ -191,6 +191,85 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
+# removing an open file that is the last entry of a split metadata pair must
+# not move the file handle onto the next metadata pair
+[cases.test_interspersed_remove_last_in_mdir]
+defines.METADATA_MAX = 'lfs_max(512, PROG_SIZE)'
+defines.N = 128
+code = '''
+    int hits = 0;
+    for (int k = 0; k < N; k++) {
+        lfs_t lfs;
+        lfs_format(&lfs, cfg) => 0;
+        lfs_mount(&lfs, cfg) => 0;
+        // enough files and dirs to split the root, entry k is always a file
+        for (int i = 0; i < N; i++) {
+            char name[64];
+            sprintf(name, "entry_with_a_longer_name_%03d", i);
+            if (i != k && i % 16 == 0) {
+                lfs_mkdir(&lfs, name) => 0;
+            } else {
+                lfs_file_t file;
+                lfs_file_open(&lfs, &file, name,
+                        LFS_O_WRONLY | LFS_O_CREAT) => 0;
+                lfs_file_write(&lfs, &file, &name[25], 3) => 3;
+                lfs_file_close(&lfs, &file) => 0;
+            }
+        }
+
+        char path[64];
+        sprintf(path, "entry_with_a_longer_name_%03d", k);
+        lfs_file_t file;
+        lfs_file_open(&lfs, &file, path, LFS_O_RDWR) => 0;
+        // we only care about the last entry in a split metadata pair
+        if (!(file.m.split && file.id == file.m.count-1)) {
+            lfs_file_close(&lfs, &file) => 0;
+            lfs_unmount(&lfs) => 0;
+            continue;
+        }
+        hits += 1;
+
+        // remove the file while it is open, then keep writing to it
+        lfs_remove(&lfs, path) => 0;
+        lfs_file_write(&lfs, &file, "removed", 7) => 7;
+        lfs_file_sync(&lfs, &file) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_unmount(&lfs) => 0;
+
+        // all other entries must be untouched
+        lfs_mount(&lfs, cfg) => 0;
+        struct lfs_info info;
+        lfs_stat(&lfs, path, &info) => LFS_ERR_NOENT;
+        for (int i = 0; i < N; i++) {
+            if (i == k) {
+                continue;
+            }
+
+            char name[64];
+            sprintf(name, "entry_with_a_longer_name_%03d", i);
+            lfs_stat(&lfs, name, &info) => 0;
+            if (i % 16 == 0) {
+                assert(info.type == LFS_TYPE_DIR);
+                lfs_dir_t dir;
+                lfs_dir_open(&lfs, &dir, name) => 0;
+                lfs_dir_close(&lfs, &dir) => 0;
+            } else {
+                assert(info.type == LFS_TYPE_REG);
+                assert(info.size == 3);
+                lfs_file_open(&lfs, &file, name, LFS_O_RDONLY) => 0;
+                uint8_t buffer[3];
+                lfs_file_read(&lfs, &file, buffer, 3) => 3;
+                assert(memcmp(buffer, &name[25], 3) == 0);
+                lfs_file_close(&lfs, &file) => 0;
+            }
+        }
+        lfs_unmount(&lfs) => 0;
+    }
+
+    // make sure we actually tested something
+    assert(hits > 0);
+'''
+
 [cases.test_interspersed_reentrant_files]
 defines.SIZE = [10, 100]
 defines.FILES = [4, 10, 26] 
