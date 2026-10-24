@@ -66,6 +66,9 @@
 #ifndef LFS3_SHRINK
 #define LFS3_SHRINK
 #endif
+#ifndef LFS3_THREADSAFE
+#define LFS3_THREADSAFE
+#endif
 #endif
 
 // LFS3_YES_REPAIRDAMAGE implies REPAIRMETADAMAGE + REPAIRDATADAMAGE
@@ -236,6 +239,31 @@
 #else
 #define LFS3_UNREACHABLE()
 #endif
+#endif
+
+// Lock/unlock functions if threadsafe
+#ifdef LFS3_THREADSAFE
+#define LFS3_LOCK(cfg) \
+    do { \
+        if (cfg->lock) { \
+            int err = cfg->lock(cfg); \
+            if (err) { \
+                return err; \
+            } \
+        } \
+    } while (0)
+#define LFS3_UNLOCK(cfg) \
+    do { \
+        if (cfg->unlock) { \
+            int err = cfg->unlock(cfg); \
+            if (err) { \
+                return err; \
+            } \
+        } \
+    } while (0)
+#else
+#define LFS3_LOCK(cfg)   ((void)cfg)
+#define LFS3_UNLOCK(cfg) ((void)cfg)
 #endif
 
 
@@ -420,6 +448,12 @@
 #define LFS3_IFDEF_SHRINK(a, b) (a)
 #else
 #define LFS3_IFDEF_SHRINK(a, b) (b)
+#endif
+
+#ifdef LFS3_THREADSAFE
+#define LFS3_IFDEF_THREADSAFE(a, b) (a)
+#else
+#define LFS3_IFDEF_THREADSAFE(a, b) (b)
 #endif
 
 

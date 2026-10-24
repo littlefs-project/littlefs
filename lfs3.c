@@ -12118,7 +12118,7 @@ static lfs3_sblock_t lfs3_mgc_gc(lfs3_t *lfs3, lfs3_mgc_t *mgc,
 // high-level blocking gc, a simple mgc wrapper
 //
 // this just calls lfs3_mgc_gc with unbounded steps
-static int lfs3_fs_gc_(lfs3_t *lfs3, uint32_t flags) {
+static int lfs3_fs_gc__(lfs3_t *lfs3, uint32_t flags) {
     // run lfs3_mgc_gc to completion
     lfs3_mgc_t mgc;
     lfs3_mgc_init(&mgc, flags, 0);
@@ -12153,7 +12153,7 @@ static int lfs3_fs_mkrepaired(lfs3_t *lfs3) {
 
     // traverse and evict to repair any known damage, this also
     // writes any condemned blocks into the gbmap
-    return lfs3_fs_gc_(lfs3,
+    return lfs3_fs_gc__(lfs3,
             ((LFS3_CFG_ISREPAIRMETADAMAGE(lfs3->cfg))
                     ? LFS3_GC_REPAIRMETA
                     : 0)
@@ -12281,13 +12281,13 @@ static int lfs3_mtree_mknostickyorphans(lfs3_t *lfs3) {
     }
 
     // run gc to clean up orphans
-    return lfs3_fs_gc_(lfs3, LFS3_GC_MKNOSTICKYORPHANS);
+    return lfs3_fs_gc__(lfs3, LFS3_GC_MKNOSTICKYORPHANS);
 }
 #endif
 
 // prepare the filesystem for mutation
 #ifndef LFS3_RDONLY
-int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
+static int lfs3_fs_mkconsistent_(lfs3_t *lfs3) {
     // filesystem must be writeable
     LFS3_ASSERT(!(lfs3->flags & LFS3_I_RDONLY));
 
@@ -12317,6 +12317,20 @@ int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
     }
 
     return 0;
+}
+#endif
+
+#ifndef LFS3_RDONLY
+int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_fs_mkconsistent(%p)",
+            lfs3);
+
+    int err = lfs3_fs_mkconsistent_(lfs3);
+
+    LFS3_TRACE("lfs3_fs_mkconsistent -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
 }
 #endif
 
@@ -13622,9 +13636,9 @@ static int lfs3_alloc_syncgbmap(lfs3_t *lfs3) {
 /// Directory operations ///
 
 #ifndef LFS3_RDONLY
-int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
+static int lfs3_mkdir_(lfs3_t *lfs3, const char *path) {
     // prepare our filesystem for writing
-    int err = lfs3_fs_mkconsistent(lfs3);
+    int err = lfs3_fs_mkconsistent_(lfs3);
     if (err) {
         return err;
     }
@@ -13822,6 +13836,20 @@ int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
 }
 #endif
 
+#ifndef LFS3_RDONLY
+int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_mkdir(%p, \"%s\")",
+            lfs3, path);
+
+    int err = lfs3_mkdir_(lfs3, path);
+
+    LFS3_TRACE("lfs3_mkdir -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+#endif
+
 // get a bookmark to remove (must go through grm), but only if the
 // directory is empty
 #ifndef LFS3_RDONLY
@@ -13876,9 +13904,9 @@ static lfs3_smid_t lfs3_rmbookmark(lfs3_t *lfs3, lfs3_did_t did) {
 #endif
 
 #ifndef LFS3_RDONLY
-int lfs3_remove(lfs3_t *lfs3, const char *path) {
+static int lfs3_remove_(lfs3_t *lfs3, const char *path) {
     // prepare our filesystem for writing
-    int err = lfs3_fs_mkconsistent(lfs3);
+    int err = lfs3_fs_mkconsistent_(lfs3);
     if (err) {
         return err;
     }
@@ -14013,9 +14041,24 @@ failed:;
 #endif
 
 #ifndef LFS3_RDONLY
-int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
+int lfs3_remove(lfs3_t *lfs3, const char *path) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_remove(%p, \"%s\")",
+            lfs3, path);
+
+    int err = lfs3_remove_(lfs3, path);
+
+    LFS3_TRACE("lfs3_remove -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS3_RDONLY
+static int lfs3_rename_(lfs3_t *lfs3,
+        const char *old_path, const char *new_path) {
     // prepare our filesystem for writing
-    int err = lfs3_fs_mkconsistent(lfs3);
+    int err = lfs3_fs_mkconsistent_(lfs3);
     if (err) {
         return err;
     }
@@ -14218,8 +14261,22 @@ failed:;
 }
 #endif
 
+#ifndef LFS3_RDONLY
+int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_rename(%p, \"%s\", \"%s\")",
+            lfs3, old_path, new_path);
+
+    int err = lfs3_rename_(lfs3, old_path, new_path);
+
+    LFS3_TRACE("lfs3_rename -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+#endif
+
 // this just populates the info struct based on what we found
-static int lfs3_stat_(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
+static int lfs3_stat__(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
         lfs3_tag_t tag, lfs3_data_t name,
         struct lfs3_info *info) {
     // get file type from the tag
@@ -14259,7 +14316,8 @@ static int lfs3_stat_(lfs3_t *lfs3, const lfs3_mdir_t *mdir,
     return 0;
 }
 
-int lfs3_stat(lfs3_t *lfs3, const char *path, struct lfs3_info *info) {
+static int lfs3_stat_(lfs3_t *lfs3, const char *path,
+        struct lfs3_info *info) {
     // lookup our entry
     lfs3_mdir_t mdir;
     lfs3_stag_t tag = lfs3_mtree_pathlookup(lfs3, &path,
@@ -14281,15 +14339,28 @@ int lfs3_stat(lfs3_t *lfs3, const char *path, struct lfs3_info *info) {
     }
 
     // fill out our info struct
-    return lfs3_stat_(lfs3, &mdir,
+    return lfs3_stat__(lfs3, &mdir,
             tag, LFS3_DATA_BUF(path, lfs3_path_namelen(path)),
             info);
 }
 
-// needed in lfs3_dir_open
-static int lfs3_dir_rewind_(lfs3_t *lfs3, lfs3_dir_t *dir);
+int lfs3_stat(lfs3_t *lfs3, const char *path, struct lfs3_info *info) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_stat(%p, \"%s\", %p)",
+            lfs3, path, info);
 
-int lfs3_dir_open(lfs3_t *lfs3, lfs3_dir_t *dir, const char *path) {
+    int err = lfs3_stat_(lfs3, path, info);
+
+    LFS3_TRACE("lfs3_stat -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
+// needed in lfs3_dir_open_
+static int lfs3_dir_rewind__(lfs3_t *lfs3, lfs3_dir_t *dir);
+
+static int lfs3_dir_open_(lfs3_t *lfs3, lfs3_dir_t *dir,
+        const char *path) {
     // already open?
     LFS3_ASSERT(!lfs3_handle_isopen(lfs3, &dir->h));
 
@@ -14332,7 +14403,7 @@ int lfs3_dir_open(lfs3_t *lfs3, lfs3_dir_t *dir, const char *path) {
     }
 
     // let rewind initialize the pos state
-    int err = lfs3_dir_rewind_(lfs3, dir);
+    int err = lfs3_dir_rewind__(lfs3, dir);
     if (err) {
         return err;
     }
@@ -14342,7 +14413,19 @@ int lfs3_dir_open(lfs3_t *lfs3, lfs3_dir_t *dir, const char *path) {
     return 0;
 }
 
-int lfs3_dir_close(lfs3_t *lfs3, lfs3_dir_t *dir) {
+int lfs3_dir_open(lfs3_t *lfs3, lfs3_dir_t *dir, const char *path) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_dir_open(%p, %p, \"%s\")",
+            lfs3, dir, path);
+
+    int err = lfs3_dir_open_(lfs3, dir, path);
+
+    LFS3_TRACE("lfs3_dir_open -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
+static int lfs3_dir_close_(lfs3_t *lfs3, lfs3_dir_t *dir) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &dir->h));
 
     // remove from tracked mdirs
@@ -14350,7 +14433,20 @@ int lfs3_dir_close(lfs3_t *lfs3, lfs3_dir_t *dir) {
     return 0;
 }
 
-int lfs3_dir_read(lfs3_t *lfs3, lfs3_dir_t *dir, struct lfs3_info *info) {
+int lfs3_dir_close(lfs3_t *lfs3, lfs3_dir_t *dir) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_dir_close(%p, %p)",
+            lfs3, dir);
+
+    int err = lfs3_dir_close_(lfs3, dir);
+
+    LFS3_TRACE("lfs3_dir_close -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
+static int lfs3_dir_read_(lfs3_t *lfs3, lfs3_dir_t *dir,
+        struct lfs3_info *info) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &dir->h));
 
     // was our dir removed?
@@ -14413,7 +14509,7 @@ int lfs3_dir_read(lfs3_t *lfs3, lfs3_dir_t *dir, struct lfs3_info *info) {
         }
 
         // fill out our info struct
-        err = lfs3_stat_(lfs3, &dir->h.mdir, tag, data,
+        err = lfs3_stat__(lfs3, &dir->h.mdir, tag, data,
                 info);
         if (err) {
             return err;
@@ -14426,7 +14522,21 @@ int lfs3_dir_read(lfs3_t *lfs3, lfs3_dir_t *dir, struct lfs3_info *info) {
     }
 }
 
-int lfs3_dir_seek(lfs3_t *lfs3, lfs3_dir_t *dir, lfs3_soff_t off) {
+int lfs3_dir_read(lfs3_t *lfs3, lfs3_dir_t *dir,
+        struct lfs3_info *info) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_dir_read(%p, %p, %p)",
+            lfs3, dir, info);
+
+    int err = lfs3_dir_read_(lfs3, dir, info);
+
+    LFS3_TRACE("lfs3_dir_read -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
+static int lfs3_dir_seek_(lfs3_t *lfs3, lfs3_dir_t *dir,
+        lfs3_soff_t off) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &dir->h));
 
     // do nothing if removed
@@ -14435,7 +14545,7 @@ int lfs3_dir_seek(lfs3_t *lfs3, lfs3_dir_t *dir, lfs3_soff_t off) {
     }
 
     // first rewind
-    int err = lfs3_dir_rewind_(lfs3, dir);
+    int err = lfs3_dir_rewind__(lfs3, dir);
     if (err) {
         return err;
     }
@@ -14471,14 +14581,38 @@ int lfs3_dir_seek(lfs3_t *lfs3, lfs3_dir_t *dir, lfs3_soff_t off) {
     return 0;
 }
 
-lfs3_soff_t lfs3_dir_tell(lfs3_t *lfs3, lfs3_dir_t *dir) {
+int lfs3_dir_seek(lfs3_t *lfs3, lfs3_dir_t *dir, lfs3_soff_t off) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_dir_seek(%p, %p, %"PRId32")",
+            lfs3, dir, off);
+
+    int err = lfs3_dir_seek_(lfs3, dir, off);
+
+    LFS3_TRACE("lfs3_dir_seek -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
+static lfs3_soff_t lfs3_dir_tell_(lfs3_t *lfs3, lfs3_dir_t *dir) {
     (void)lfs3;
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &dir->h));
 
     return dir->pos;
 }
 
-static int lfs3_dir_rewind_(lfs3_t *lfs3, lfs3_dir_t *dir) {
+lfs3_soff_t lfs3_dir_tell(lfs3_t *lfs3, lfs3_dir_t *dir) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_dir_tell(%p, %p)",
+            lfs3, dir);
+
+    lfs3_soff_t off = lfs3_dir_tell_(lfs3, dir);
+
+    LFS3_TRACE("lfs3_dir_tell -> %"PRId32, off);
+    LFS3_UNLOCK(lfs3->cfg);
+    return off;
+}
+
+static int lfs3_dir_rewind__(lfs3_t *lfs3, lfs3_dir_t *dir) {
     // do nothing if removed
     if (dir->h.flags & LFS3_o_ZOMBIE) {
         return 0;
@@ -14499,10 +14633,22 @@ static int lfs3_dir_rewind_(lfs3_t *lfs3, lfs3_dir_t *dir) {
     return 0;
 }
 
-int lfs3_dir_rewind(lfs3_t *lfs3, lfs3_dir_t *dir) {
+static int lfs3_dir_rewind_(lfs3_t *lfs3, lfs3_dir_t *dir) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &dir->h));
 
-    return lfs3_dir_rewind_(lfs3, dir);
+    return lfs3_dir_rewind__(lfs3, dir);
+}
+
+int lfs3_dir_rewind(lfs3_t *lfs3, lfs3_dir_t *dir) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_dir_rewind(%p, %p)",
+            lfs3, dir);
+
+    int err = lfs3_dir_rewind_(lfs3, dir);
+
+    LFS3_TRACE("lfs3_dir_rewind -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
 }
 
 
@@ -14536,7 +14682,8 @@ static int lfs3_lookupattr(lfs3_t *lfs3, const char *path, uint8_t type,
     return 0;
 }
 
-lfs3_ssize_t lfs3_getattr(lfs3_t *lfs3, const char *path, uint8_t type,
+static lfs3_ssize_t lfs3_getattr_(lfs3_t *lfs3,
+        const char *path, uint8_t type,
         void *buffer, lfs3_size_t size) {
     // lookup our attr
     lfs3_mdir_t mdir;
@@ -14551,7 +14698,21 @@ lfs3_ssize_t lfs3_getattr(lfs3_t *lfs3, const char *path, uint8_t type,
     return lfs3_data_read(lfs3, &data, buffer, size);
 }
 
-lfs3_ssize_t lfs3_sizeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
+lfs3_ssize_t lfs3_getattr(lfs3_t *lfs3, const char *path, uint8_t type,
+        void *buffer, lfs3_size_t size) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_getattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
+            lfs3, path, type, buffer, size);
+
+    lfs3_ssize_t size_ = lfs3_getattr_(lfs3, path, type, buffer, size);
+
+    LFS3_TRACE("lfs3_getattr -> %"PRId32, size_);
+    LFS3_UNLOCK(lfs3->cfg);
+    return size_;
+}
+
+static lfs3_ssize_t lfs3_sizeattr_(lfs3_t *lfs3,
+        const char *path, uint8_t type) {
     // lookup our attr
     lfs3_mdir_t mdir;
     lfs3_data_t data;
@@ -14565,11 +14726,23 @@ lfs3_ssize_t lfs3_sizeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
     return lfs3_data_size(&data);
 }
 
+lfs3_ssize_t lfs3_sizeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_sizeattr(%p, \"%s\", %"PRIu8")",
+            lfs3, path, type);
+
+    lfs3_ssize_t size_ = lfs3_sizeattr_(lfs3, path, type);
+
+    LFS3_TRACE("lfs3_sizeattr -> %"PRId32, size_);
+    LFS3_UNLOCK(lfs3->cfg);
+    return size_;
+}
+
 #ifndef LFS3_RDONLY
-int lfs3_setattr(lfs3_t *lfs3, const char *path, uint8_t type,
+static int lfs3_setattr_(lfs3_t *lfs3, const char *path, uint8_t type,
         const void *buffer, lfs3_size_t size) {
     // prepare our filesystem for writing
-    int err = lfs3_fs_mkconsistent(lfs3);
+    int err = lfs3_fs_mkconsistent_(lfs3);
     if (err) {
         return err;
     }
@@ -14651,9 +14824,25 @@ int lfs3_setattr(lfs3_t *lfs3, const char *path, uint8_t type,
 #endif
 
 #ifndef LFS3_RDONLY
-int lfs3_removeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
+int lfs3_setattr(lfs3_t *lfs3, const char *path, uint8_t type,
+        const void *buffer, lfs3_size_t size) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_setattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
+            lfs3, path, type, buffer, size);
+
+    int err = lfs3_setattr_(lfs3, path, type, buffer, size);
+
+    LFS3_TRACE("lfs3_setattr -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS3_RDONLY
+static int lfs3_removeattr_(lfs3_t *lfs3,
+        const char *path, uint8_t type) {
     // prepare our filesystem for writing
-    int err = lfs3_fs_mkconsistent(lfs3);
+    int err = lfs3_fs_mkconsistent_(lfs3);
     if (err) {
         return err;
     }
@@ -14720,6 +14909,20 @@ int lfs3_removeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
 }
 #endif
 
+#ifndef LFS3_RDONLY
+int lfs3_removeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_removeattr(%p, \"%s\", %"PRIu8")",
+            lfs3, path, type);
+
+    int err = lfs3_removeattr_(lfs3, path, type);
+
+    LFS3_TRACE("lfs3_removeattr -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+#endif
+
 
 
 
@@ -14750,7 +14953,7 @@ static inline lfs3_size_t lfs3_file_fcachesize(lfs3_t *lfs3,
             : lfs3->cfg->fcache_size;
 }
 
-static inline lfs3_off_t lfs3_file_size_(const lfs3_file_t *file) {
+static inline lfs3_off_t lfs3_file_size__(const lfs3_file_t *file) {
     return lfs3_max(
             file->cache.pos + file->cache.size,
             lfs3_max(
@@ -14886,11 +15089,11 @@ static int lfs3_file_fetch(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
 }
 
 // needed in lfs3_file_opencfg
-static void lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file);
-static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
+static void lfs3_file_close__(lfs3_t *lfs3, lfs3_file_t *file);
+static int lfs3_file_sync__(lfs3_t *lfs3, lfs3_file_t *file,
         const lfs3_rattr_t *rname);
 
-static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
+static int lfs3_file_opencfg__(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags,
         const struct lfs3_file_cfg *cfg) {
     // already open?
@@ -14942,7 +15145,7 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
     #ifndef LFS3_RDONLY
     if (!lfs3_o_isrdonly(flags)) {
         // prepare our filesystem for writing
-        int err = lfs3_fs_mkconsistent(lfs3);
+        int err = lfs3_fs_mkconsistent_(lfs3);
         if (err) {
             return err;
         }
@@ -15067,7 +15270,7 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
             // we need to mark as unsync for sync to do anything
             file->h.flags |= LFS3_o_UNSYNC;
 
-            err = lfs3_file_sync_(lfs3, file, (const lfs3_rattr_t[]){
+            err = lfs3_file_sync__(lfs3, file, (const lfs3_rattr_t[]){
                     LFS3_RATTR(LFS3_TAG_REG, +1, 2, LFS3_FROM_NAME),
                     LFS3_RATTR_ARG(did),
                     LFS3_RATTR_ARG(path),
@@ -15138,11 +15341,11 @@ static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
 
 failed:;
     // clean up resources
-    lfs3_file_close_(lfs3, file);
+    lfs3_file_close__(lfs3, file);
     return err;
 }
 
-int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
+static int lfs3_file_opencfg_(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags,
         const struct lfs3_file_cfg *cfg) {
     // already open?
@@ -15151,8 +15354,8 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
     LFS3_ASSERT((flags & LFS3_O_MODE) != 0);
     // unknown flags?
     //
-    // there are more flag checks in lfs3_file_opencfg_, but
-    // lfs3_file_opencfg_ allows some internal-only flags that we want
+    // there are more flag checks in lfs3_file_opencfg__, but
+    // lfs3_file_opencfg__ allows some internal-only flags that we want
     // to reject here
     LFS3_ASSERT((flags & ~(
             LFS3_O_RDONLY
@@ -15173,22 +15376,70 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_O_REPAIRDATA, 0)))) == 0);
 
-    return lfs3_file_opencfg_(lfs3, file, path, flags,
+    return lfs3_file_opencfg__(lfs3, file, path, flags,
             cfg);
+}
+
+int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
+        const char *path, uint32_t flags,
+        const struct lfs3_file_cfg *cfg) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_opencfg("
+                "%p, "
+                "%p, "
+                "\"%s\", "
+                "0x%"PRIx32", "
+                "%p {"
+                    ".fcache_buffer=%p, "
+                    ".fcache_size=%"PRIu32", "
+                    ".attrs=%p, "
+                    ".attr_count=%"PRIu32", "
+                    ".grain_size=%"PRIu32", "
+                    ".crystal_thresh=%"PRIu32"})",
+            lfs3,
+            file,
+            path,
+            flags,
+            cfg,
+                cfg->fcache_buffer,
+                cfg->fcache_size,
+                cfg->attrs,
+                cfg->attr_count,
+                LFS3_IFDEF_RDONLY(0, cfg->grain_size),
+                LFS3_IFDEF_RDONLY(0, cfg->crystal_thresh));
+
+    int err = lfs3_file_opencfg_(lfs3, file, path, flags, cfg);
+
+    LFS3_TRACE("lfs3_file_opencfg -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
 }
 
 
 // default file config
 static const struct lfs3_file_cfg lfs3_file_defaultcfg = {0};
 
-int lfs3_file_open(lfs3_t *lfs3, lfs3_file_t *file,
+static int lfs3_file_open_(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags) {
-    return lfs3_file_opencfg(lfs3, file, path, flags,
+    return lfs3_file_opencfg_(lfs3, file, path, flags,
             &lfs3_file_defaultcfg);
 }
 
+int lfs3_file_open(lfs3_t *lfs3, lfs3_file_t *file,
+        const char *path, uint32_t flags) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_open(%p, %p, \"%s\", 0x%"PRIx32")",
+            lfs3, file, path, flags);
+
+    int err = lfs3_file_open_(lfs3, file, path, flags);
+
+    LFS3_TRACE("lfs3_file_open -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
 // clean up resources
-static void lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file) {
+static void lfs3_file_close__(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     // remove from tracked mdirs
     lfs3_handle_close(lfs3, &file->h);
@@ -15238,22 +15489,34 @@ static void lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file) {
     #endif
 }
 
-// needed in lfs3_file_close
-int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file);
+// needed in lfs3_file_close_
+static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file);
 
-int lfs3_file_close(lfs3_t *lfs3, lfs3_file_t *file) {
+static int lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
 
-    // don't call lfs3_file_sync if we're readonly or desynced
+    // don't call lfs3_file_sync_ if we're readonly or desynced
     int err = 0;
     if (!lfs3_o_isrdonly(file->h.flags)
             && !(file->h.flags & LFS3_O_DESYNC)) {
-        err = lfs3_file_sync(lfs3, file);
+        err = lfs3_file_sync_(lfs3, file);
     }
 
     // clean up resources
-    lfs3_file_close_(lfs3, file);
+    lfs3_file_close__(lfs3, file);
 
+    return err;
+}
+
+int lfs3_file_close(lfs3_t *lfs3, lfs3_file_t *file) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_close(%p, %p)",
+            lfs3, file);
+
+    int err = lfs3_file_close_(lfs3, file);
+
+    LFS3_TRACE("lfs3_file_close -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
 
@@ -15304,13 +15567,13 @@ static int lfs3_file_lookupnext(lfs3_t *lfs3, const lfs3_file_t *file,
             bid_, &rbyd__, NULL, bptr_);
 }
 
-static int lfs3_file_read_(lfs3_t *lfs3, lfs3_file_t *file,
+static int lfs3_file_read__(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t buffer_pos, const uint8_t *buffer, lfs3_size_t buffer_size,
         lfs3_off_t pos,
         lfs3_data_t *data_) {
     // out-of-bounds?
     //
-    // note we can't use lfs3_file_size_ here, because buffer may not
+    // note we can't use lfs3_file_size__ here, because buffer may not
     // yet be flushed
     lfs3_off_t file_size = lfs3_max(
             buffer_pos + buffer_size,
@@ -15389,7 +15652,10 @@ static int lfs3_file_read_(lfs3_t *lfs3, lfs3_file_t *file,
 
 // high-level file reading
 
-lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
+// needed in lfs3_file_read_
+static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file);
+
+static lfs3_ssize_t lfs3_file_read_(lfs3_t *lfs3, lfs3_file_t *file,
         void *buffer, lfs3_size_t size) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
     // can't read from writeonly files
@@ -15399,7 +15665,7 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
     lfs3_off_t pos_ = file->pos;
     uint8_t *buffer_ = buffer;
     lfs3_size_t size_ = size;
-    while (size_ > 0 && pos_ < lfs3_file_size_(file)) {
+    while (size_ > 0 && pos_ < lfs3_file_size__(file)) {
         // any data in our cache?
         if (pos_ >= file->cache.pos
                 && pos_ < file->cache.pos + file->cache.size) {
@@ -15434,7 +15700,7 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
                 && !(file->h.flags & LFS3_o_UNCRYST)
                 && !(file->h.flags & LFS3_o_UNGRAFT)) {
             lfs3_data_t data__;
-            int err = lfs3_file_read_(lfs3, file,
+            int err = lfs3_file_read__(lfs3, file,
                     file->cache.pos, file->cache.buffer, file->cache.size,
                     pos_,
                     &data__);
@@ -15486,7 +15752,7 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
         // note that flush does not change the actual file data, so if
         // a read fails it's ok to fall back to our flushed state
         //
-        int err = lfs3_file_flush(lfs3, file);
+        int err = lfs3_file_flush_(lfs3, file);
         if (err) {
             return err;
         }
@@ -15497,6 +15763,19 @@ lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
     lfs3_size_t read = pos_ - file->pos;
     file->pos = pos_;
     return read;
+}
+
+lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
+        void *buffer, lfs3_size_t size) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_read(%p, %p, %p, %"PRIu32")",
+            lfs3, file, buffer, size);
+
+    lfs3_ssize_t d = lfs3_file_read_(lfs3, file, buffer, size);
+
+    LFS3_TRACE("lfs3_file_read -> %"PRId32, d);
+    LFS3_UNLOCK(lfs3->cfg);
+    return d;
 }
 
 // low-level file writing
@@ -15968,7 +16247,7 @@ static int lfs3_file_crystallize__(lfs3_t *lfs3, lfs3_file_t *file,
         // us over our crystal_size/block_size
         while (pos_ < crystal_limit) {
             lfs3_data_t data__;
-            int err = lfs3_file_read_(lfs3, file,
+            int err = lfs3_file_read__(lfs3, file,
                     buffer_pos, buffer, buffer_size,
                     pos_,
                     &data__);
@@ -16152,7 +16431,7 @@ static int lfs3_file_crystallize_(lfs3_t *lfs3, lfs3_file_t *file) {
 #endif
 
 #ifndef LFS3_RDONLY
-static int lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
+static int lfs3_file_write__(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t pos, const uint8_t *buffer, lfs3_size_t size) {
     // we may need to graft multiple blocks/grains
     lfs3_off_t pos_ = pos;
@@ -16468,7 +16747,7 @@ grain:;
 // high-level file writing
 
 #ifndef LFS3_RDONLY
-lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
+static lfs3_ssize_t lfs3_file_write_(lfs3_t *lfs3, lfs3_file_t *file,
         const void *buffer, lfs3_size_t size) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
     // can't write to readonly files
@@ -16500,7 +16779,7 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
 
     // update pos if we are appending
     if (file->h.flags & LFS3_O_APPEND) {
-        file->pos = lfs3_file_size_(file);
+        file->pos = lfs3_file_size__(file);
     }
 
     lfs3_off_t pos_ = file->pos;
@@ -16515,7 +16794,7 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
         //
         if (!(file->h.flags & LFS3_o_UNFLUSH)
                 && size_ >= lfs3_file_fcachesize(lfs3, file)) {
-            err = lfs3_file_write_(lfs3, file,
+            err = lfs3_file_write__(lfs3, file,
                     pos_, buffer_, size_);
             if (err) {
                 goto failed;
@@ -16579,7 +16858,7 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // flush our cache so the above can't fail
-        err = lfs3_file_write_(lfs3, file,
+        err = lfs3_file_write__(lfs3, file,
                 file->cache.pos, file->cache.buffer, file->cache.size);
         if (err) {
             goto failed;
@@ -16593,7 +16872,7 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
 
     // flush if requested
     if (file->h.flags & LFS3_O_FLUSH) {
-        err = lfs3_file_flush(lfs3, file);
+        err = lfs3_file_flush_(lfs3, file);
         if (err) {
             goto failed;
         }
@@ -16601,7 +16880,7 @@ lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
 
     // sync if requested
     if (file->h.flags & LFS3_O_SYNC) {
-        err = lfs3_file_sync(lfs3, file);
+        err = lfs3_file_sync_(lfs3, file);
         if (err) {
             goto failed;
         }
@@ -16616,7 +16895,22 @@ failed:;
 }
 #endif
 
-int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
+#ifndef LFS3_RDONLY
+lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
+        const void *buffer, lfs3_size_t size) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_write(%p, %p, %p, %"PRIu32")",
+            lfs3, file, buffer, size);
+
+    lfs3_ssize_t d = lfs3_file_write_(lfs3, file, buffer, size);
+
+    LFS3_TRACE("lfs3_file_write -> %"PRId32, d);
+    LFS3_UNLOCK(lfs3->cfg);
+    return d;
+}
+#endif
+
+static int lfs3_file_flush_(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
 
@@ -16641,7 +16935,7 @@ int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
 
     // flush our cache
     if (file->h.flags & LFS3_o_UNFLUSH) {
-        err = lfs3_file_write_(lfs3, file,
+        err = lfs3_file_write__(lfs3, file,
                 file->cache.pos, file->cache.buffer, file->cache.size);
         if (err) {
             goto failed;
@@ -16673,10 +16967,23 @@ failed:;
     #endif
 }
 
+int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_flush(%p, %p)",
+            lfs3, file);
+
+    int err = lfs3_file_flush_(lfs3, file);
+
+    LFS3_TRACE("lfs3_file_flush -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
 #ifndef LFS3_RDONLY
-// this LFS3_NOINLINE is to force lfs3_file_sync_ off the stack hot-path
+// this LFS3_NOINLINE is to force lfs3_file_sync__ off the stack
+// hot-path
 LFS3_NOINLINE
-static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
+static int lfs3_file_sync__(lfs3_t *lfs3, lfs3_file_t *file,
         const lfs3_rattr_t *rname) {
     // build a commit of any pending file metadata
     lfs3_rattr_t rattrs[16];
@@ -16724,7 +17031,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         if (file->h.flags & LFS3_o_UNFLUSH) {
             // this only works if the file is entirely in our cache
             LFS3_ASSERT(file->cache.pos == 0);
-            LFS3_ASSERT(file->cache.size == lfs3_file_size_(file));
+            LFS3_ASSERT(file->cache.size == lfs3_file_size__(file));
 
             // discard any lingering bshrub state
             lfs3_file_discardbshrub(file);
@@ -16750,7 +17057,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // make sure data is on-disk before committing metadata
-        if (lfs3_file_size_(file) > 0
+        if (lfs3_file_size__(file) > 0
                 && !(file->h.flags & LFS3_o_UNFLUSH)) {
             int err = lfs3_bd_sync(lfs3, 0);
             if (err) {
@@ -16759,10 +17066,10 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
         }
 
         // zero size files should have no bshrub/btree
-        LFS3_ASSERT(lfs3_file_size_(file) > 0 || !file->bshrub.trunk);
+        LFS3_ASSERT(lfs3_file_size__(file) > 0 || !file->bshrub.trunk);
 
         // no bshrub/btree?
-        if (lfs3_file_size_(file) == 0) {
+        if (lfs3_file_size__(file) == 0) {
             *r++ = LFS3_RATTR(
                     LFS3_tag_RM | LFS3_tag_MASK8 | LFS3_TAG_STRUCT, 0, 0);
         // bshrub?
@@ -16926,7 +17233,7 @@ static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file,
 }
 #endif
 
-int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
+static int lfs3_file_sync_(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
 
@@ -16943,7 +17250,7 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     // this merges the data flush with metadata sync in a single commit
     // if the file is small enough to fit in the cache
     int err;
-    if (file->cache.size == lfs3_file_size_(file)
+    if (file->cache.size == lfs3_file_size__(file)
             && (lfs3_ssize_t)file->cache.size
                 <= (lfs3_ssize_t)lfs3->cfg->shrub_size
             && file->cache.size <= file->grain_size
@@ -16958,7 +17265,7 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     // flush succeeds but mdir commit fails it's ok to fall back to
     // our flushed state
     } else {
-        err = lfs3_file_flush(lfs3, file);
+        err = lfs3_file_flush_(lfs3, file);
         if (err) {
             goto failed;
         }
@@ -16973,9 +17280,9 @@ int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     // commit any pending metadata to disk
     //
     // the use of a second function here is mainly to isolate the
-    // stack costs of lfs3_file_flush and lfs3_file_sync_
+    // stack costs of lfs3_file_flush_ and lfs3_file_sync__
     //
-    err = lfs3_file_sync_(lfs3, file, NULL);
+    err = lfs3_file_sync__(lfs3, file, NULL);
     if (err) {
         goto failed;
     }
@@ -17001,7 +17308,19 @@ failed:;
     #endif
 }
 
-int lfs3_file_desync(lfs3_t *lfs3, lfs3_file_t *file) {
+int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_sync(%p, %p)",
+            lfs3, file);
+
+    int err = lfs3_file_sync_(lfs3, file);
+
+    LFS3_TRACE("lfs3_file_sync -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
+static int lfs3_file_desync_(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     (void)file;
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
@@ -17013,7 +17332,19 @@ int lfs3_file_desync(lfs3_t *lfs3, lfs3_file_t *file) {
     return 0;
 }
 
-int lfs3_file_resync(lfs3_t *lfs3, lfs3_file_t *file) {
+int lfs3_file_desync(lfs3_t *lfs3, lfs3_file_t *file) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_desync(%p, %p)",
+            lfs3, file);
+
+    int err = lfs3_file_desync_(lfs3, file);
+
+    LFS3_TRACE("lfs3_file_desync -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
+static int lfs3_file_resync_(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     (void)file;
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
@@ -17054,9 +17385,21 @@ failed:;
     #endif
 }
 
+int lfs3_file_resync(lfs3_t *lfs3, lfs3_file_t *file) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_resync(%p, %p)",
+            lfs3, file);
+
+    int err = lfs3_file_resync_(lfs3, file);
+
+    LFS3_TRACE("lfs3_file_resync -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
 // other file operations
 
-lfs3_soff_t lfs3_file_seek(lfs3_t *lfs3, lfs3_file_t *file,
+static lfs3_soff_t lfs3_file_seek_(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_soff_t off, uint32_t whence) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
 
@@ -17069,7 +17412,7 @@ lfs3_soff_t lfs3_file_seek(lfs3_t *lfs3, lfs3_file_t *file,
     } else if (whence == LFS3_SEEK_CUR) {
         pos_ = file->pos + off;
     } else if (whence == LFS3_SEEK_END) {
-        pos_ = lfs3_file_size_(file) + off;
+        pos_ = lfs3_file_size__(file) + off;
     } else {
         LFS3_UNREACHABLE();
     }
@@ -17084,14 +17427,39 @@ lfs3_soff_t lfs3_file_seek(lfs3_t *lfs3, lfs3_file_t *file,
     return pos_;
 }
 
-lfs3_soff_t lfs3_file_tell(lfs3_t *lfs3, lfs3_file_t *file) {
+lfs3_soff_t lfs3_file_seek(lfs3_t *lfs3, lfs3_file_t *file,
+        lfs3_soff_t off, uint32_t whence) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_seek(%p, %p, %"PRId32", 0x%"PRIx32")",
+            lfs3, file, off, whence);
+
+    lfs3_soff_t off_ = lfs3_file_seek_(lfs3, file, off, whence);
+
+    LFS3_TRACE("lfs3_file_seek -> %"PRId32, off_);
+    LFS3_UNLOCK(lfs3->cfg);
+    return off_;
+}
+
+static lfs3_soff_t lfs3_file_tell_(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
 
     return file->pos;
 }
 
-int lfs3_file_rewind(lfs3_t *lfs3, lfs3_file_t *file) {
+lfs3_soff_t lfs3_file_tell(lfs3_t *lfs3, lfs3_file_t *file) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_tell(%p, %p)",
+            lfs3, file);
+
+    lfs3_soff_t off = lfs3_file_tell_(lfs3, file);
+
+    LFS3_TRACE("lfs3_file_tell -> %"PRId32, off);
+    LFS3_UNLOCK(lfs3->cfg);
+    return off;
+}
+
+static int lfs3_file_rewind_(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
 
@@ -17099,22 +17467,47 @@ int lfs3_file_rewind(lfs3_t *lfs3, lfs3_file_t *file) {
     return 0;
 }
 
-lfs3_soff_t lfs3_file_size(lfs3_t *lfs3, lfs3_file_t *file) {
+int lfs3_file_rewind(lfs3_t *lfs3, lfs3_file_t *file) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_rewind(%p, %p)",
+            lfs3, file);
+
+    int err = lfs3_file_rewind_(lfs3, file);
+
+    LFS3_TRACE("lfs3_file_rewind -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
+static lfs3_soff_t lfs3_file_size_(lfs3_t *lfs3, lfs3_file_t *file) {
     (void)lfs3;
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
 
-    return lfs3_file_size_(file);
+    return lfs3_file_size__(file);
+}
+
+lfs3_soff_t lfs3_file_size(lfs3_t *lfs3, lfs3_file_t *file) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_size(%p, %p)",
+            lfs3, file);
+
+    lfs3_soff_t size = lfs3_file_size_(lfs3, file);
+
+    LFS3_TRACE("lfs3_file_size -> %"PRId32, size);
+    LFS3_UNLOCK(lfs3->cfg);
+    return size;
 }
 
 #ifndef LFS3_RDONLY
-int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
+static int lfs3_file_truncate_(lfs3_t *lfs3, lfs3_file_t *file,
+        lfs3_off_t size_) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
     // can't write to readonly files
     LFS3_ASSERT(!lfs3_o_isrdonly(file->h.flags));
 
     // do nothing if our size does not change
-    lfs3_off_t size = lfs3_file_size_(file);
-    if (lfs3_file_size_(file) == size_) {
+    lfs3_off_t size = lfs3_file_size__(file);
+    if (lfs3_file_size__(file) == size_) {
         return 0;
     }
 
@@ -17193,13 +17586,29 @@ failed:;
 #endif
 
 #ifndef LFS3_RDONLY
-int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file, lfs3_off_t size_) {
+int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file,
+        lfs3_off_t size_) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_truncate(%p, %p, %"PRIu32")",
+            lfs3, file, size_);
+
+    int err = lfs3_file_truncate_(lfs3, file, size_);
+
+    LFS3_TRACE("lfs3_file_truncate -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+#endif
+
+#ifndef LFS3_RDONLY
+static int lfs3_file_fruncate_(lfs3_t *lfs3, lfs3_file_t *file,
+        lfs3_off_t size_) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
     // can't write to readonly files
     LFS3_ASSERT(!lfs3_o_isrdonly(file->h.flags));
 
     // do nothing if our size does not change
-    lfs3_off_t size = lfs3_file_size_(file);
+    lfs3_off_t size = lfs3_file_size__(file);
     if (size == size_) {
         return 0;
     }
@@ -17304,8 +17713,24 @@ failed:;
 }
 #endif
 
+#ifndef LFS3_RDONLY
+int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file,
+        lfs3_off_t size_) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_fruncate(%p, %p, %"PRIu32")",
+            lfs3, file, size_);
+
+    int err = lfs3_file_fruncate_(lfs3, file, size_);
+
+    LFS3_TRACE("lfs3_file_fruncate -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+#endif
+
 // file ck/repair function
-int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
+static int lfs3_file_ck_(lfs3_t *lfs3, lfs3_file_t *file,
+        uint32_t flags) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &file->h));
     // unknown ck flags?
     //
@@ -17355,7 +17780,7 @@ damaged:;
                     : 0))
             & lfs3->flags
             & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA)) {
-        int err = lfs3_fs_gc_(lfs3, flags & (
+        int err = lfs3_fs_gc__(lfs3, flags & (
                 LFS3_CK_REPAIRMETA | LFS3_CK_REPAIRDATA));
         if (err) {
             return err;
@@ -17451,6 +17876,18 @@ damaged:;
     return 0;
 }
 
+int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_file_ck(%p, %p, 0x%"PRIx32")",
+            lfs3, file, flags);
+
+    int err = lfs3_file_ck_(lfs3, file, flags);
+
+    LFS3_TRACE("lfs3_file_ck -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
 
 
 /// Simple key-value API ///
@@ -17466,21 +17903,54 @@ static const struct lfs3_file_cfg lfs3_file_kvcfg = {
     .fcache_size = 0,
 };
 
-lfs3_ssize_t lfs3_get(lfs3_t *lfs3, const char *path,
+static lfs3_ssize_t lfs3_get_(lfs3_t *lfs3, const char *path,
         void *buffer, lfs3_size_t size) {
     // we just use the file API here, but with no cache so all reads
     // bypass the cache
     lfs3_file_t file;
-    int err = lfs3_file_opencfg_(lfs3, &file, path, LFS3_O_RDONLY,
+    int err = lfs3_file_opencfg__(lfs3, &file, path, LFS3_O_RDONLY,
             &lfs3_file_kvcfg);
     if (err) {
         return err;
     }
 
-    lfs3_ssize_t size_ = lfs3_file_read(lfs3, &file, buffer, size);
+    lfs3_ssize_t size_ = lfs3_file_read_(lfs3, &file, buffer, size);
 
     // unconditionally close
-    err = lfs3_file_close(lfs3, &file);
+    err = lfs3_file_close_(lfs3, &file);
+    // we didn't allocate anything, so this can't fail
+    LFS3_ASSERT(!err);
+
+    return size_;
+}
+
+lfs3_ssize_t lfs3_get(lfs3_t *lfs3, const char *path,
+        void *buffer, lfs3_size_t size) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_get(%p, \"%s\", %p, %"PRIu32")",
+            lfs3, path, buffer, size);
+
+    lfs3_ssize_t d = lfs3_get_(lfs3, path, buffer, size);
+
+    LFS3_TRACE("lfs3_get -> %"PRId32, d);
+    LFS3_UNLOCK(lfs3->cfg);
+    return d;
+}
+
+static lfs3_ssize_t lfs3_size_(lfs3_t *lfs3, const char *path) {
+    // we just use the file API here, but with no cache so all reads
+    // bypass the cache
+    lfs3_file_t file;
+    int err = lfs3_file_opencfg__(lfs3, &file, path, LFS3_O_RDONLY,
+            &lfs3_file_kvcfg);
+    if (err) {
+        return err;
+    }
+
+    lfs3_ssize_t size_ = lfs3_file_size__(&file);
+
+    // unconditionally close
+    err = lfs3_file_close_(lfs3, &file);
     // we didn't allocate anything, so this can't fail
     LFS3_ASSERT(!err);
 
@@ -17488,27 +17958,19 @@ lfs3_ssize_t lfs3_get(lfs3_t *lfs3, const char *path,
 }
 
 lfs3_ssize_t lfs3_size(lfs3_t *lfs3, const char *path) {
-    // we just use the file API here, but with no cache so all reads
-    // bypass the cache
-    lfs3_file_t file;
-    int err = lfs3_file_opencfg_(lfs3, &file, path, LFS3_O_RDONLY,
-            &lfs3_file_kvcfg);
-    if (err) {
-        return err;
-    }
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_size(%p, \"%s\")",
+            lfs3, path);
 
-    lfs3_ssize_t size_ = lfs3_file_size_(&file);
+    lfs3_ssize_t d = lfs3_size_(lfs3, path);
 
-    // unconditionally close
-    err = lfs3_file_close(lfs3, &file);
-    // we didn't allocate anything, so this can't fail
-    LFS3_ASSERT(!err);
-
-    return size_;
+    LFS3_TRACE("lfs3_size -> %"PRId32, d);
+    LFS3_UNLOCK(lfs3->cfg);
+    return d;
 }
 
 #ifndef LFS3_RDONLY
-int lfs3_set(lfs3_t *lfs3, const char *path,
+static int lfs3_set_(lfs3_t *lfs3, const char *path,
         const void *buffer, lfs3_size_t size) {
     // LFS3_o_SET is a special flag specifically to make lfs3_set atomic
     // when possible
@@ -17517,7 +17979,7 @@ int lfs3_set(lfs3_t *lfs3, const char *path,
     //   committed/broadcasted in lfs3_file_opencfg
     //
     // - otherwise (exists? stickynote?), we flush/sync/broadcast
-    //   normally in lfs3_file_close, lfs3_file_sync has its own logic
+    //   normally in lfs3_file_close_, lfs3_file_sync_ has its own logic
     //   to try to commit small files atomically
     //
     struct lfs3_file_cfg cfg = {
@@ -17525,7 +17987,7 @@ int lfs3_set(lfs3_t *lfs3, const char *path,
         .fcache_size = size,
     };
     lfs3_file_t file;
-    int err = lfs3_file_opencfg_(lfs3, &file, path,
+    int err = lfs3_file_opencfg__(lfs3, &file, path,
             LFS3_O_WRONLY | LFS3_O_CREAT | LFS3_O_TRUNC | LFS3_o_SET,
             &cfg);
     if (err) {
@@ -17533,7 +17995,22 @@ int lfs3_set(lfs3_t *lfs3, const char *path,
     }
 
     // let close do any remaining work
-    return lfs3_file_close(lfs3, &file);
+    return lfs3_file_close_(lfs3, &file);
+}
+#endif
+
+#ifndef LFS3_RDONLY
+int lfs3_set(lfs3_t *lfs3, const char *path,
+        const void *buffer, lfs3_size_t size) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_set(%p, \"%s\", %p, %"PRIu32")",
+            lfs3, path, buffer, size);
+
+    int err = lfs3_set_(lfs3, path, buffer, size);
+
+    LFS3_TRACE("lfs3_set -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
 }
 #endif
 
@@ -18538,7 +19015,7 @@ static int lfs3_mountinited(lfs3_t *lfs3) {
     return 0;
 }
 
-int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
+static int lfs3_mount_(lfs3_t *lfs3, uint32_t flags,
         const struct lfs3_cfg *cfg) {
     // unknown flags?
     LFS3_ASSERT((flags & ~(
@@ -18661,7 +19138,7 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                     LFS3_IFDEF_REPAIR(LFS3_M_REPAIRMETA, 0))
                 | LFS3_IFDEF_RDONLY(0,
                     LFS3_IFDEF_REPAIR(LFS3_M_REPAIRDATA, 0)))) {
-        err = lfs3_fs_gc_(lfs3, flags & (
+        err = lfs3_fs_gc__(lfs3, flags & (
                 LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOGRM)
                     | LFS3_IFDEF_RDONLY(0, LFS3_M_MKNOSTICKYORPHANS)
                     | LFS3_IFDEF_RDONLY(0, LFS3_M_LOOKAHEAD)
@@ -18704,7 +19181,104 @@ failed:;
     return err;
 }
 
-int lfs3_unmount(lfs3_t *lfs3) {
+int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
+        const struct lfs3_cfg *cfg) {
+    LFS3_LOCK(cfg);
+    LFS3_TRACE("lfs3_mount("
+                "%p, "
+                "0x%"PRIx32", "
+                "%p {"
+                    ".context=%p, "
+                    ".read=%p, "
+                    ".prog=%p, "
+                    ".erase=%p, "
+                    ".sync=%p, "
+                    ".lock=%p, "
+                    ".unlock=%p, "
+                    ".read_size=%"PRIu32", "
+                    ".prog_size=%"PRIu32", "
+                    ".block_size=%"PRIu32", "
+                    ".block_count=%"PRIu32", "
+                    ".block_recycles=%"PRId32", "
+                    ".rev_flags=0x%"PRIx8", "
+                    ".damage_flags=0x%"PRIx8", "
+                    ".rcache_size=%"PRIu32", "
+                    ".pcache_size=%"PRIu32", "
+                    ".fcache_size=%"PRIu32", "
+                    ".lookahead_size=%"PRIu32", "
+                    ".lookgbmap_thresh=%"PRIu32", "
+                    ".evictqueue_count=%"PRIu32", "
+                    ".gc_flags=0x%"PRIx32", "
+                    ".gc_steps=%"PRId32", "
+                    ".gc_lookahead_thresh=%"PRIu32", "
+                    ".gc_lookgbmap_thresh=%"PRIu32", "
+                    ".gc_preerase_count=%"PRIu32", "
+                    ".gc_compactmeta_thresh=%"PRIu32", "
+                    ".gc_compactbtree_thresh=%"PRIu32", "
+                    ".rcache_buffer=%p, "
+                    ".pcache_buffer=%p, "
+                    ".lookahead_buffer=%p, "
+                    ".evictqueue_array=%p, "
+                    ".file_limit=%"PRIu32", "
+                    ".name_limit=%"PRIu8", "
+                    ".attr_limit=%"PRIu8", "
+                    ".shrub_size=%"PRIu32", "
+                    ".grain_size=%"PRIu32", "
+                    ".crystal_thresh=%"PRIu32"})",
+            lfs3,
+            flags,
+            cfg,
+                cfg->context,
+                cfg->read,
+                LFS3_IFDEF_RDONLY(NULL, cfg->prog),
+                LFS3_IFDEF_RDONLY(NULL, cfg->erase),
+                LFS3_IFDEF_RDONLY(NULL, cfg->sync),
+                LFS3_IFDEF_THREADSAFE(cfg->lock, NULL),
+                LFS3_IFDEF_THREADSAFE(cfg->unlock, NULL),
+                cfg->read_size,
+                LFS3_IFDEF_RDONLY(0, cfg->prog_size),
+                cfg->block_size,
+                cfg->block_count,
+                LFS3_IFDEF_RDONLY(0, cfg->block_recycles),
+                cfg->rev_flags,
+                cfg->damage_flags,
+                cfg->rcache_size,
+                LFS3_IFDEF_RDONLY(0, cfg->pcache_size),
+                cfg->fcache_size,
+                LFS3_IFDEF_RDONLY(0, cfg->lookahead_size),
+                LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_GBMAP(cfg->lookgbmap_thresh, 0)),
+                LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(cfg->evictqueue_count, 0)),
+                LFS3_IFDEF_GC(cfg->gc_flags, 0),
+                LFS3_IFDEF_GC(cfg->gc_steps, 0),
+                LFS3_IFDEF_RDONLY(0, cfg->gc_lookahead_thresh),
+                LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_GBMAP(cfg->gc_lookgbmap_thresh, 0)),
+                LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_PREERASE(cfg->gc_preerase_count, 0)),
+                LFS3_IFDEF_RDONLY(0, cfg->gc_compactmeta_thresh),
+                LFS3_IFDEF_RDONLY(0, cfg->gc_compactbtree_thresh),
+                cfg->rcache_buffer,
+                LFS3_IFDEF_RDONLY(NULL, cfg->pcache_buffer),
+                LFS3_IFDEF_RDONLY(NULL, cfg->lookahead_buffer),
+                LFS3_IFDEF_RDONLY(NULL,
+                    LFS3_IFDEF_EVICT(cfg->evictqueue_array, NULL)),
+                LFS3_IFDEF_RDONLY(0, cfg->file_limit),
+                LFS3_IFDEF_RDONLY(0, cfg->name_limit),
+                LFS3_IFDEF_RDONLY(0, cfg->attr_limit),
+                LFS3_IFDEF_RDONLY(0, cfg->shrub_size),
+                LFS3_IFDEF_RDONLY(0, cfg->grain_size),
+                LFS3_IFDEF_RDONLY(0, cfg->crystal_thresh));
+
+    int err = lfs3_mount_(lfs3, flags, cfg);
+
+    LFS3_TRACE("lfs3_mount -> %d", err);
+    LFS3_UNLOCK(cfg);
+    return err;
+}
+
+static int lfs3_unmount_(lfs3_t *lfs3) {
     // all files/dirs should be closed before lfs3_unmount
     LFS3_ASSERT(lfs3->handles == NULL
             // except maybe our gc traversal handle
@@ -18714,6 +19288,17 @@ int lfs3_unmount(lfs3_t *lfs3) {
                 false));
 
     return lfs3_deinit(lfs3);
+}
+
+int lfs3_unmount(lfs3_t *lfs3) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_unmount(%p)", lfs3);
+
+    int err = lfs3_unmount_(lfs3);
+
+    LFS3_TRACE("lfs3_unmount -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
 }
 
 
@@ -18873,7 +19458,7 @@ static int lfs3_formatinited(lfs3_t *lfs3) {
 #endif
 
 #ifndef LFS3_RDONLY
-int lfs3_format(lfs3_t *lfs3, uint32_t flags,
+static int lfs3_format_(lfs3_t *lfs3, uint32_t flags,
         const struct lfs3_cfg *cfg) {
     // unknown flags?
     LFS3_ASSERT((flags & ~(
@@ -18962,7 +19547,7 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 | LFS3_F_CKDATA
                 | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRMETA, 0)
                 | LFS3_IFDEF_REPAIR(LFS3_F_REPAIRDATA, 0))) {
-        err = lfs3_fs_gc_(lfs3, flags & (
+        err = lfs3_fs_gc__(lfs3, flags & (
                 LFS3_F_MKNOGRM
                     | LFS3_F_MKNOSTICKYORPHANS
                     | LFS3_F_LOOKAHEAD
@@ -18987,12 +19572,111 @@ failed:;
 }
 #endif
 
+#ifndef LFS3_RDONLY
+int lfs3_format(lfs3_t *lfs3, uint32_t flags,
+        const struct lfs3_cfg *cfg) {
+    LFS3_LOCK(cfg);
+    LFS3_TRACE("lfs3_format("
+                "%p, "
+                "0x%"PRIx32", "
+                "%p {"
+                    ".context=%p, "
+                    ".read=%p, "
+                    ".prog=%p, "
+                    ".erase=%p, "
+                    ".sync=%p, "
+                    ".lock=%p, "
+                    ".unlock=%p, "
+                    ".read_size=%"PRIu32", "
+                    ".prog_size=%"PRIu32", "
+                    ".block_size=%"PRIu32", "
+                    ".block_count=%"PRIu32", "
+                    ".block_recycles=%"PRId32", "
+                    ".rev_flags=0x%"PRIx8", "
+                    ".damage_flags=0x%"PRIx8", "
+                    ".rcache_size=%"PRIu32", "
+                    ".pcache_size=%"PRIu32", "
+                    ".fcache_size=%"PRIu32", "
+                    ".lookahead_size=%"PRIu32", "
+                    ".lookgbmap_thresh=%"PRIu32", "
+                    ".evictqueue_count=%"PRIu32", "
+                    ".gc_flags=0x%"PRIx32", "
+                    ".gc_steps=%"PRId32", "
+                    ".gc_lookahead_thresh=%"PRIu32", "
+                    ".gc_lookgbmap_thresh=%"PRIu32", "
+                    ".gc_preerase_count=%"PRIu32", "
+                    ".gc_compactmeta_thresh=%"PRIu32", "
+                    ".gc_compactbtree_thresh=%"PRIu32", "
+                    ".rcache_buffer=%p, "
+                    ".pcache_buffer=%p, "
+                    ".lookahead_buffer=%p, "
+                    ".evictqueue_array=%p, "
+                    ".file_limit=%"PRIu32", "
+                    ".name_limit=%"PRIu8", "
+                    ".attr_limit=%"PRIu8", "
+                    ".shrub_size=%"PRIu32", "
+                    ".grain_size=%"PRIu32", "
+                    ".crystal_thresh=%"PRIu32"})",
+            lfs3,
+            flags,
+            cfg,
+                cfg->context,
+                cfg->read,
+                LFS3_IFDEF_RDONLY(NULL, cfg->prog),
+                LFS3_IFDEF_RDONLY(NULL, cfg->erase),
+                LFS3_IFDEF_RDONLY(NULL, cfg->sync),
+                LFS3_IFDEF_THREADSAFE(cfg->lock, NULL),
+                LFS3_IFDEF_THREADSAFE(cfg->unlock, NULL),
+                cfg->read_size,
+                LFS3_IFDEF_RDONLY(0, cfg->prog_size),
+                cfg->block_size,
+                cfg->block_count,
+                LFS3_IFDEF_RDONLY(0, cfg->block_recycles),
+                cfg->rev_flags,
+                cfg->damage_flags,
+                cfg->rcache_size,
+                LFS3_IFDEF_RDONLY(0, cfg->pcache_size),
+                cfg->fcache_size,
+                LFS3_IFDEF_RDONLY(0, cfg->lookahead_size),
+                LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_GBMAP(cfg->lookgbmap_thresh, 0)),
+                LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_EVICT(cfg->evictqueue_count, 0)),
+                LFS3_IFDEF_GC(cfg->gc_flags, 0),
+                LFS3_IFDEF_GC(cfg->gc_steps, 0),
+                LFS3_IFDEF_RDONLY(0, cfg->gc_lookahead_thresh),
+                LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_GBMAP(cfg->gc_lookgbmap_thresh, 0)),
+                LFS3_IFDEF_RDONLY(0,
+                    LFS3_IFDEF_PREERASE(cfg->gc_preerase_count, 0)),
+                LFS3_IFDEF_RDONLY(0, cfg->gc_compactmeta_thresh),
+                LFS3_IFDEF_RDONLY(0, cfg->gc_compactbtree_thresh),
+                cfg->rcache_buffer,
+                LFS3_IFDEF_RDONLY(NULL, cfg->pcache_buffer),
+                LFS3_IFDEF_RDONLY(NULL, cfg->lookahead_buffer),
+                LFS3_IFDEF_RDONLY(NULL,
+                    LFS3_IFDEF_EVICT(cfg->evictqueue_array, NULL)),
+                LFS3_IFDEF_RDONLY(0, cfg->file_limit),
+                LFS3_IFDEF_RDONLY(0, cfg->name_limit),
+                LFS3_IFDEF_RDONLY(0, cfg->attr_limit),
+                LFS3_IFDEF_RDONLY(0, cfg->shrub_size),
+                LFS3_IFDEF_RDONLY(0, cfg->grain_size),
+                LFS3_IFDEF_RDONLY(0, cfg->crystal_thresh));
+
+    int err = lfs3_format_(lfs3, flags, cfg);
+
+    LFS3_TRACE("lfs3_format -> %d", err);
+    LFS3_UNLOCK(cfg);
+    return err;
+}
+#endif
+
 
 
 /// Other filesystem things  ///
 
-// note lfs3_fs_stat should never go to disk
-int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
+// note lfs3_fs_stat_ should never go to disk
+static int lfs3_fs_stat_(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
     // return various filesystem flags
     fsinfo->flags = (lfs3->flags & (
                 LFS3_I_RDONLY
@@ -19051,8 +19735,20 @@ int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
     return 0;
 }
 
+int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_fs_stat(%p, %p)",
+            lfs3, fsinfo);
+
+    int err = lfs3_fs_stat_(lfs3, fsinfo);
+
+    LFS3_TRACE("lfs3_fs_stat -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
 // find the number of blocks in use by the filesystem
-lfs3_sblock_t lfs3_fs_size(lfs3_t *lfs3) {
+static lfs3_sblock_t lfs3_fs_size_(lfs3_t *lfs3) {
     lfs3_block_t count = 0;
     lfs3_mtrv_t mtrv;
     lfs3_mtrv_init(&mtrv, 0);
@@ -19092,14 +19788,38 @@ lfs3_sblock_t lfs3_fs_size(lfs3_t *lfs3) {
     return count;
 }
 
+lfs3_sblock_t lfs3_fs_size(lfs3_t *lfs3) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_fs_size(%p)",
+            lfs3);
+
+    lfs3_ssize_t size = lfs3_fs_size_(lfs3);
+
+    LFS3_TRACE("lfs3_fs_size -> %"PRId32, size);
+    LFS3_UNLOCK(lfs3->cfg);
+    return size;
+}
+
 // get the filesystem checksum
-int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum) {
+static int lfs3_fs_cksum_(lfs3_t *lfs3, uint32_t *cksum) {
     *cksum = lfs3->gcksum;
     return 0;
 }
 
+int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_fs_cksum(%p, %p)",
+            lfs3, cksum);
+
+    int err = lfs3_fs_cksum_(lfs3, cksum);
+
+    LFS3_TRACE("lfs3_fs_cksum -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
 // filesystem ck/repair function
-int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
+static int lfs3_fs_ck_(lfs3_t *lfs3, uint32_t flags) {
     // unknown ck flags?
     LFS3_ASSERT((flags & ~(
             LFS3_CK_MTREEONLY
@@ -19130,7 +19850,7 @@ damaged:;
                     : 0))
             & lfs3->flags
             & (LFS3_I_REPAIRMETA | LFS3_I_REPAIRDATA)) {
-        int err = lfs3_fs_gc_(lfs3, flags & (
+        int err = lfs3_fs_gc__(lfs3, flags & (
                 LFS3_CK_REPAIRMETA | LFS3_CK_REPAIRDATA));
         if (err) {
             return err;
@@ -19176,11 +19896,23 @@ damaged:;
     return 0;
 }
 
+int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_fs_ck(%p, 0x%"PRIx32")",
+            lfs3, flags);
+
+    int err = lfs3_fs_ck_(lfs3, flags);
+
+    LFS3_TRACE("lfs3_fs_ck -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
 // incremental filesystem gc
 //
 // perform any pending janitorial work
 #ifdef LFS3_GC
-lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
+static lfs3_sblock_t lfs3_fs_gc_(lfs3_t *lfs3) {
     // unknown gc flags?
     LFS3_ASSERT((lfs3->cfg->gc_flags & ~(
             LFS3_IFDEF_RDONLY(0, LFS3_GC_MKNOGRM)
@@ -19271,8 +20003,22 @@ lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
 }
 #endif
 
+#ifdef LFS3_GC
+lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_fs_gc(%p)",
+            lfs3);
+
+    lfs3_ssize_t steps = lfs3_fs_gc_(lfs3);
+
+    LFS3_TRACE("lfs3_fs_gc -> %"PRId32, steps);
+    LFS3_UNLOCK(lfs3->cfg);
+    return steps;
+}
+#endif
+
 // request janitorial work
-int lfs3_fs_requestck(lfs3_t *lfs3, uint32_t flags) {
+static int lfs3_fs_requestck_(lfs3_t *lfs3, uint32_t flags) {
     // unknown flags? this is limited to ck flags
     LFS3_ASSERT((flags & ~(
             LFS3_I_CKMETA
@@ -19295,8 +20041,20 @@ int lfs3_fs_requestck(lfs3_t *lfs3, uint32_t flags) {
     return 0;
 }
 
+int lfs3_fs_requestck(lfs3_t *lfs3, uint32_t flags) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_fs_requestck(%p, 0x%"PRIx32")",
+            lfs3, flags);
+
+    int err = lfs3_fs_requestck_(lfs3, flags);
+
+    LFS3_TRACE("lfs3_fs_requestck -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
 // clear flags/optional janitorial work
-int lfs3_fs_clearck(lfs3_t *lfs3, uint32_t flags) {
+static int lfs3_fs_clearck_(lfs3_t *lfs3, uint32_t flags) {
     // unknown flags? this is limited to ck, repair, and sticky flags
     LFS3_ASSERT((flags & ~(
             LFS3_I_CKMETA
@@ -19333,19 +20091,32 @@ int lfs3_fs_clearck(lfs3_t *lfs3, uint32_t flags) {
     return 0;
 }
 
+int lfs3_fs_clearck(lfs3_t *lfs3, uint32_t flags) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_fs_clearck(%p, 0x%"PRIx32")",
+            lfs3, flags);
+
+    int err = lfs3_fs_clearck_(lfs3, flags);
+
+    LFS3_TRACE("lfs3_fs_clearck -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
 
 // attempt to grow the filesystem
 #ifndef LFS3_RDONLY
-int lfs3_fs_grow(lfs3_t *lfs3, lfs3_block_t block_count_, uint32_t flags) {
+static int lfs3_fs_grow_(lfs3_t *lfs3, lfs3_block_t block_count_,
+        uint32_t flags) {
     (void)flags;
-    // Note we do _not_ call lfs3_fs_mkconsistent here, or we risk
+    // Note we do _not_ call lfs3_fs_mkconsistent_ here, or we risk
     // locking up our filesystem trying to fix grms/orphans when we
     // could grow.
     //
     // Ideally we should always be able to recover a stuck filesystem
     // with lfs3_fs_grow.
     //
-    // We should be ok not calling lfs3_fs_mkconsistent as long as we
+    // We should be ok not calling lfs3_fs_mkconsistent_ as long as we
     // don't create/delete mids and patch grms in lfs3_mdir_commit.
     //
     // This may not match user's expectations, but at the same time, we
@@ -19563,12 +20334,27 @@ failed:;
 }
 #endif
 
+#ifndef LFS3_RDONLY
+int lfs3_fs_grow(lfs3_t *lfs3, lfs3_block_t block_count_,
+        uint32_t flags) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_fs_grow(%p, %"PRIu32", 0x%"PRIx32")",
+            lfs3, block_count_, flags);
+
+    int err = lfs3_fs_grow_(lfs3, block_count_, flags);
+
+    LFS3_TRACE("lfs3_fs_grow -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+#endif
+
 // enable the global on-disk block-map
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-int lfs3_fs_mkgbmap(lfs3_t *lfs3) {
-    // Note we do _not_ call lfs3_fs_mkconsistent here.
+static int lfs3_fs_mkgbmap_(lfs3_t *lfs3) {
+    // Note we do _not_ call lfs3_fs_mkconsistent_ here.
     //
-    // We should be ok not calling lfs3_fs_mkconsistent as long as we
+    // We should be ok not calling lfs3_fs_mkconsistent_ as long as we
     // don't create/delete mids and patch grms in lfs3_mdir_commit.
     //
     // This may not match user's expectations, but at the same time, we
@@ -19632,12 +20418,26 @@ failed:;
 }
 #endif
 
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+int lfs3_fs_mkgbmap(lfs3_t *lfs3) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_fs_mkgbmap(%p)",
+            lfs3);
+
+    int err = lfs3_fs_mkgbmap_(lfs3);
+
+    LFS3_TRACE("lfs3_fs_mkgbmap -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+#endif
+
 // disable the global on-disk block-map
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
-int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
-    // Note we do _not_ call lfs3_fs_mkconsistent here.
+static int lfs3_fs_rmgbmap_(lfs3_t *lfs3) {
+    // Note we do _not_ call lfs3_fs_mkconsistent_ here.
     //
-    // We should be ok not calling lfs3_fs_mkconsistent as long as we
+    // We should be ok not calling lfs3_fs_mkconsistent_ as long as we
     // don't create/delete mids and patch grms in lfs3_mdir_commit.
     //
     // This may not match user's expectations, but at the same time, we
@@ -19677,14 +20477,29 @@ int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
 }
 #endif
 
+#if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
+int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_fs_rmgbmap(%p)",
+            lfs3);
+
+    int err = lfs3_fs_rmgbmap_(lfs3);
+
+    LFS3_TRACE("lfs3_fs_rmgbmap -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+#endif
+
 
 // evict a block from the filesystem, and/or mark it as good/bad
 #if !defined(LFS3_RDONLY) && (defined(LFS3_EVICT) || defined(LFS3_GBMAP))
-int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block, uint32_t flags) {
+static int lfs3_fs_evictblock_(lfs3_t *lfs3, lfs3_block_t block,
+        uint32_t flags) {
     (void)flags;
-    // Note we do _not_ call lfs3_fs_mkconsistent here.
+    // Note we do _not_ call lfs3_fs_mkconsistent_ here.
     //
-    // We should be ok not calling lfs3_fs_mkconsistent as long as we
+    // We should be ok not calling lfs3_fs_mkconsistent_ as long as we
     // don't create/delete mids and patch grms in lfs3_mdir_commit.
     //
     // This may not match user's expectations, but at the same time, we
@@ -19804,8 +20619,23 @@ failed:;
 }
 #endif
 
+#if !defined(LFS3_RDONLY) && (defined(LFS3_EVICT) || defined(LFS3_GBMAP))
+int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block,
+        uint32_t flags) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_fs_evictblock(%p, 0x%"PRIx32", 0x%"PRIx32")",
+            lfs3, block, flags);
+
+    int err = lfs3_fs_evictblock_(lfs3, block, flags);
+
+    LFS3_TRACE("lfs3_fs_evictblock -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+#endif
+
 // find info about littlefs's knowledge of a specific block
-int lfs3_fs_statblock(lfs3_t *lfs3, lfs3_block_t block,
+static int lfs3_fs_statblock_(lfs3_t *lfs3, lfs3_block_t block,
         struct lfs3_binfo *binfo) {
     // out-of-bounds?
     if (block >= lfs3->block_count) {
@@ -19865,11 +20695,25 @@ int lfs3_fs_statblock(lfs3_t *lfs3, lfs3_block_t block,
     return 0;
 }
 
+int lfs3_fs_statblock(lfs3_t *lfs3, lfs3_block_t block,
+        struct lfs3_binfo *binfo) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_fs_statblock(%p, 0x%"PRIx32", %p)",
+            lfs3, block, binfo);
+
+    int err = lfs3_fs_statblock_(lfs3, block, binfo);
+
+    LFS3_TRACE("lfs3_fs_statblock -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
 
 
 /// High-level filesystem traversal ///
 
-int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
+static int lfs3_trv_open_(lfs3_t *lfs3, lfs3_trv_t *trv,
+        uint32_t flags) {
     // already open?
     LFS3_ASSERT(!lfs3_handle_isopen(lfs3, &trv->t.h));
     // unknown flags?
@@ -19889,7 +20733,19 @@ int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
     return 0;
 }
 
-int lfs3_trv_close(lfs3_t *lfs3, lfs3_trv_t *trv) {
+int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_trv_open(%p, %p, 0x%"PRIx32")",
+            lfs3, trv, flags);
+
+    int err = lfs3_trv_open_(lfs3, trv, flags);
+
+    LFS3_TRACE("lfs3_trv_open -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
+static int lfs3_trv_close_(lfs3_t *lfs3, lfs3_trv_t *trv) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &trv->t.h));
 
     // remove from tracked mdirs
@@ -19897,7 +20753,19 @@ int lfs3_trv_close(lfs3_t *lfs3, lfs3_trv_t *trv) {
     return 0;
 }
 
-int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
+int lfs3_trv_close(lfs3_t *lfs3, lfs3_trv_t *trv) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_trv_close(%p, %p)",
+            lfs3, trv);
+
+    int err = lfs3_trv_close_(lfs3, trv);
+
+    LFS3_TRACE("lfs3_trv_close -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
+static int lfs3_trv_read_(lfs3_t *lfs3, lfs3_trv_t *trv,
         struct lfs3_binfo *binfo) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &trv->t.h));
 
@@ -19970,7 +20838,20 @@ int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
     }
 }
 
-int lfs3_trv_rewind(lfs3_t *lfs3, lfs3_trv_t *trv) {
+int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
+        struct lfs3_binfo *binfo) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_trv_read(%p, %p, %p)",
+            lfs3, trv, binfo);
+
+    int err = lfs3_trv_read_(lfs3, trv, binfo);
+
+    LFS3_TRACE("lfs3_trv_read -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
+static int lfs3_trv_rewind_(lfs3_t *lfs3, lfs3_trv_t *trv) {
     (void)lfs3;
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &trv->t.h));
     // reset traversal
@@ -19983,10 +20864,22 @@ int lfs3_trv_rewind(lfs3_t *lfs3, lfs3_trv_t *trv) {
     return 0;
 }
 
+int lfs3_trv_rewind(lfs3_t *lfs3, lfs3_trv_t *trv) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_trv_rewind(%p, %p)",
+            lfs3, trv);
+
+    int err = lfs3_trv_rewind_(lfs3, trv);
+
+    LFS3_TRACE("lfs3_trv_rewind -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
 
 /// High-level filesystem gc ///
 
-int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
+static int lfs3_gc_open_(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
     // already open?
     LFS3_ASSERT(!lfs3_handle_isopen(lfs3, &gc->gc.t.h));
     // unknown flags?
@@ -20080,7 +20973,19 @@ int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
     return 0;
 }
 
-int lfs3_gc_close(lfs3_t *lfs3, lfs3_gc_t *gc) {
+int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_gc_open(%p, %p, 0x%"PRIx32")",
+            lfs3, gc, flags);
+
+    int err = lfs3_gc_open_(lfs3, gc, flags);
+
+    LFS3_TRACE("lfs3_gc_open -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
+static int lfs3_gc_close_(lfs3_t *lfs3, lfs3_gc_t *gc) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &gc->gc.t.h));
 
     // remove from tracked mdirs
@@ -20088,7 +20993,19 @@ int lfs3_gc_close(lfs3_t *lfs3, lfs3_gc_t *gc) {
     return 0;
 }
 
-lfs3_sblock_t lfs3_gc_write(lfs3_t *lfs3, lfs3_gc_t *gc,
+int lfs3_gc_close(lfs3_t *lfs3, lfs3_gc_t *gc) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_gc_close(%p, %p)",
+            lfs3, gc);
+
+    int err = lfs3_gc_close_(lfs3, gc);
+
+    LFS3_TRACE("lfs3_gc_close -> %d", err);
+    LFS3_UNLOCK(lfs3->cfg);
+    return err;
+}
+
+static lfs3_sblock_t lfs3_gc_write_(lfs3_t *lfs3, lfs3_gc_t *gc,
         lfs3_sblock_t steps) {
     LFS3_ASSERT(lfs3_handle_isopen(lfs3, &gc->gc.t.h));
 
@@ -20100,6 +21017,19 @@ lfs3_sblock_t lfs3_gc_write(lfs3_t *lfs3, lfs3_gc_t *gc,
 
     // run gc
     return lfs3_mgc_gc(lfs3, &gc->gc, steps);
+}
+
+lfs3_sblock_t lfs3_gc_write(lfs3_t *lfs3, lfs3_gc_t *gc,
+        lfs3_sblock_t steps) {
+    LFS3_LOCK(lfs3->cfg);
+    LFS3_TRACE("lfs3_gc_write(%p, %p, %"PRId32")",
+            lfs3, gc, steps);
+
+    lfs3_sblock_t steps_ = lfs3_gc_write_(lfs3, gc, steps);
+
+    LFS3_TRACE("lfs3_gc_write -> %"PRId32, steps_);
+    LFS3_UNLOCK(lfs3->cfg);
+    return steps_;
 }
 
 

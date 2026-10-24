@@ -1867,6 +1867,15 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
 // Returns a negative error code on failure.
 int lfs3_file_close(lfs3_t *lfs3, lfs3_file_t *file);
 
+// Flush any buffered data
+//
+// This does not update metadata and is called implicitly by
+// lfs3_file_sync. Calling this explicitly may be useful for preventing
+// write errors in read operations.
+//
+// Returns a negative error code on failure.
+int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file);
+
 // Synchronize a file on storage
 //
 // Any pending writes are written out to storage and other open files.
@@ -1876,15 +1885,6 @@ int lfs3_file_close(lfs3_t *lfs3, lfs3_file_t *file);
 //
 // Returns a negative error code on failure.
 int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file);
-
-// Flush any buffered data
-//
-// This does not update metadata and is called implicitly by
-// lfs3_file_sync. Calling this explicitly may be useful for preventing
-// write errors in read operations.
-//
-// Returns a negative error code on failure.
-int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file);
 
 // Mark a file as desynchronized
 //
