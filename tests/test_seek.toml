@@ -660,3 +660,34 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
+
+[cases.test_seek_write_overflow]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "kitty",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    uint8_t buffer[1024];
+    strcpy((char*)buffer, "kittycatcat");
+    size_t size = strlen((char*)buffer);
+    lfs_file_write(&lfs, &file, buffer, size) => size;
+
+    // seek to LFS_FILE_MAX
+    lfs_file_seek(&lfs, &file, LFS_FILE_MAX, LFS_SEEK_SET) => LFS_FILE_MAX;
+
+    // writes past LFS_FILE_MAX should error, even if pos+size overflows
+    lfs_file_write(&lfs, &file, buffer, 1) => LFS_ERR_FBIG;
+    lfs_file_write(&lfs, &file, buffer,
+            -(uint32_t)LFS_FILE_MAX) => LFS_ERR_FBIG;
+    lfs_file_write(&lfs, &file, buffer,
+            0xffffffff) => LFS_ERR_FBIG;
+
+    // file pointer and size should not have changed
+    lfs_file_tell(&lfs, &file) => LFS_FILE_MAX;
+    lfs_file_size(&lfs, &file) => size;
+
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
