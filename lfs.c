@@ -3677,7 +3677,7 @@ static lfs_ssize_t lfs_file_write_(lfs_t *lfs, lfs_file_t *file,
         file->pos = file->ctz.size;
     }
 
-    if (file->pos + size > lfs->file_max) {
+    if (size > lfs->file_max - file->pos) {
         // Larger than file limit?
         return LFS_ERR_FBIG;
     }
