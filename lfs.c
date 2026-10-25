@@ -3765,6 +3765,11 @@ static int lfs_file_truncate_(lfs_t *lfs, lfs_file_t *file, lfs_off_t size) {
         return LFS_ERR_INVAL;
     }
 
+    if (size > lfs->file_max) {
+        // Larger than file limit?
+        return LFS_ERR_FBIG;
+    }
+
     lfs_off_t pos = file->pos;
     lfs_off_t oldsize = lfs_file_size_(lfs, file);
     if (size < oldsize) {

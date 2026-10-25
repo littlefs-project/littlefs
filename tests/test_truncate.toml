@@ -501,3 +501,45 @@ code = '''
     lfs_file_close(&lfs, &file) => 0;
     lfs_unmount(&lfs) => 0;
 '''
+
+# truncate past file_max
+[cases.test_truncate_file_max]
+defines.TWEAKED_FILE_MAX = 1024
+code = '''
+    struct lfs_config tweaked_cfg = *cfg;
+    tweaked_cfg.file_max = TWEAKED_FILE_MAX;
+
+    lfs_t lfs;
+    lfs_format(&lfs, &tweaked_cfg) => 0;
+    lfs_mount(&lfs, &tweaked_cfg) => 0;
+    lfs_file_t file;
+    lfs_file_open(&lfs, &file, "baldy",
+            LFS_O_RDWR | LFS_O_CREAT) => 0;
+
+    uint8_t buffer[1024];
+    strcpy((char*)buffer, "hair");
+    size_t size = strlen((char*)buffer);
+    lfs_file_write(&lfs, &file, buffer, size) => size;
+    lfs_file_seek(&lfs, &file, 1, LFS_SEEK_SET) => 1;
+
+    // growing past file_max should error without changing the file
+    lfs_file_truncate(&lfs, &file, TWEAKED_FILE_MAX+1) => LFS_ERR_FBIG;
+    lfs_file_size(&lfs, &file) => size;
+    lfs_file_tell(&lfs, &file) => 1;
+
+    // growing up to file_max should still work
+    lfs_file_truncate(&lfs, &file, TWEAKED_FILE_MAX) => 0;
+    lfs_file_size(&lfs, &file) => TWEAKED_FILE_MAX;
+    lfs_file_tell(&lfs, &file) => 1;
+
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, &tweaked_cfg) => 0;
+    lfs_file_open(&lfs, &file, "baldy", LFS_O_RDONLY) => 0;
+    lfs_file_size(&lfs, &file) => TWEAKED_FILE_MAX;
+    lfs_file_read(&lfs, &file, buffer, size) => size;
+    memcmp(buffer, "hair", size) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
