@@ -2256,8 +2256,11 @@ static int lfs_dir_relocatingcommit(lfs_t *lfs, lfs_mdir_t *dir,
     }
 
     // should we actually drop the directory block?
-    if (hasdelete && dir->count == 0) {
-        LFS_ASSERT(pdir);
+    //
+    // note not every caller can handle a drop, these pass a NULL pdir (fixing
+    // a pending move while relocating), in which case we just commit the
+    // empty mdir and leave it in the tail list
+    if (hasdelete && dir->count == 0 && pdir) {
         int err = lfs_fs_pred(lfs, dir->pair, pdir);
         if (err && err != LFS_ERR_NOENT) {
             return err;
