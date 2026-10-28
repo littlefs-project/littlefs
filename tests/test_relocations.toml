@@ -509,3 +509,74 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 '''
+
+# a cross-directory rename whose commit relocates the destination dir, where
+# the source dir is the destination's predecessor and the rename empties it:
+# fixing the pending move while relocating commits to the predecessor with no
+# pdir, so that commit must not try to drop it (#949)
+[cases.test_relocations_rename_empties_pred]
+defines.REWRITES = 'range(0, 64)'
+defines.BLOCK_CYCLES = [1, 2]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_mkdir(&lfs, "d") => 0;
+    lfs_mkdir(&lfs, "e") => 0;
+
+    uint8_t buffer[128];
+    memset(buffer, 'a', sizeof(buffer));
+    lfs_file_t file;
+    // e holds a single entry
+    lfs_file_open(&lfs, &file, "e/x",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_write(&lfs, &file, buffer, 30) => 30;
+    lfs_file_close(&lfs, &file) => 0;
+    for (unsigned i = 0; i < 8; i++) {
+        char path[16];
+        sprintf(path, "d/f%u", i);
+        lfs_file_open(&lfs, &file, path,
+                LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfs_file_write(&lfs, &file, buffer, 100) => 100;
+        lfs_file_close(&lfs, &file) => 0;
+    }
+    // bring d towards a compaction
+    for (unsigned i = 0; i < REWRITES; i++) {
+        lfs_file_open(&lfs, &file, "d/z",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_TRUNC) => 0;
+        lfs_file_write(&lfs, &file, buffer, 40) => 40;
+        lfs_file_close(&lfs, &file) => 0;
+    }
+
+    lfs_rename(&lfs, "e/x", "d/x") => 0;
+    lfs_unmount(&lfs) => 0;
+
+    lfs_mount(&lfs, cfg) => 0;
+    struct lfs_info info;
+    lfs_stat(&lfs, "e/x", &info) => LFS_ERR_NOENT;
+    lfs_stat(&lfs, "d/x", &info) => 0;
+    assert(info.type == LFS_TYPE_REG);
+    assert(info.size == 30);
+    lfs_dir_t dir;
+    lfs_dir_open(&lfs, &dir, "e") => 0;
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(strcmp(info.name, ".") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 1;
+    assert(strcmp(info.name, "..") == 0);
+    lfs_dir_read(&lfs, &dir, &info) => 0;
+    lfs_dir_close(&lfs, &dir) => 0;
+    lfs_file_open(&lfs, &file, "d/x", LFS_O_RDONLY) => 0;
+    uint8_t rbuffer[128];
+    lfs_file_read(&lfs, &file, rbuffer, sizeof(rbuffer)) => 30;
+    memcmp(rbuffer, buffer, 30) => 0;
+    lfs_file_close(&lfs, &file) => 0;
+
+    // the filesystem must still take writes
+    lfs_remove(&lfs, "e") => 0;
+    lfs_file_open(&lfs, &file, "d/y",
+            LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    lfs_file_write(&lfs, &file, buffer, 30) => 30;
+    lfs_file_close(&lfs, &file) => 0;
+    lfs_fs_mkconsistent(&lfs) => 0;
+    lfs_unmount(&lfs) => 0;
+'''
