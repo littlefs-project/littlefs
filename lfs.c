@@ -4605,14 +4605,10 @@ static int lfs_mount_(lfs_t *lfs, const struct lfs_config *cfg) {
             }
 
             // this is where we get the block_count from disk if block_count=0
-            if (lfs->cfg->block_count
-                    && superblock.block_count != lfs->cfg->block_count) {
-                LFS_ERROR("Invalid block count (%"PRIu32" != %"PRIu32")",
-                        superblock.block_count, lfs->cfg->block_count);
-                err = LFS_ERR_INVAL;
-                goto cleanup;
-            }
-
+            //
+            // note we only check block_count after scanning, since older
+            // superblock copies may have a stale block_count after
+            // lfs_fs_grow
             lfs->block_count = superblock.block_count;
 
             if (superblock.block_size != lfs->cfg->block_size) {
@@ -4628,6 +4624,14 @@ static int lfs_mount_(lfs_t *lfs, const struct lfs_config *cfg) {
         if (err) {
             goto cleanup;
         }
+    }
+
+    // check the block_count of the last superblock found
+    if (lfs->cfg->block_count && lfs->block_count != lfs->cfg->block_count) {
+        LFS_ERROR("Invalid block count (%"PRIu32" != %"PRIu32")",
+                lfs->block_count, lfs->cfg->block_count);
+        err = LFS_ERR_INVAL;
+        goto cleanup;
     }
 
     // update littlefs with gstate
