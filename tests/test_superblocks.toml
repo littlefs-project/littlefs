@@ -524,6 +524,66 @@ code = '''
     lfs_unmount(&lfs) => 0;
 '''
 
+# grow the filesystem after the superblock has expanded
+[cases.test_superblocks_grow_expand]
+defines.BLOCK_COUNT = 'ERASE_COUNT/2'
+defines.BLOCK_COUNT_2 = 'ERASE_COUNT'
+defines.BLOCK_CYCLES = 1
+defines.METADATA_MAX = 'lfs_max(lfs_max(128, READ_SIZE), PROG_SIZE)'
+defines.KNOWN_BLOCK_COUNT = [true, false]
+code = '''
+    lfs_t lfs;
+    lfs_format(&lfs, cfg) => 0;
+
+    if (KNOWN_BLOCK_COUNT) {
+        cfg->block_count = BLOCK_COUNT;
+    } else {
+        cfg->block_count = 0;
+    }
+
+    // expand the superblock
+    lfs_mount(&lfs, cfg) => 0;
+    for (int i = 0; i < 10; i++) {
+        lfs_file_t file;
+        lfs_file_open(&lfs, &file, "dummy",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_remove(&lfs, "dummy") => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+
+    // grow, then write more so metadata moves into the new blocks
+    lfs_mount(&lfs, cfg) => 0;
+    lfs_fs_grow(&lfs, BLOCK_COUNT_2) => 0;
+    for (int i = 0; i < 10; i++) {
+        lfs_file_t file;
+        lfs_file_open(&lfs, &file, "dummy",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_remove(&lfs, "dummy") => 0;
+    }
+    lfs_unmount(&lfs) => 0;
+
+    if (KNOWN_BLOCK_COUNT) {
+        cfg->block_count = BLOCK_COUNT_2;
+    } else {
+        cfg->block_count = 0;
+    }
+
+    lfs_mount(&lfs, cfg) => 0;
+    struct lfs_fsinfo fsinfo;
+    lfs_fs_stat(&lfs, &fsinfo) => 0;
+    assert(fsinfo.block_size == BLOCK_SIZE);
+    assert(fsinfo.block_count == BLOCK_COUNT_2);
+    lfs_unmount(&lfs) => 0;
+
+    // mounting with the previous size should fail, metadata may already
+    // live in the new blocks so this can also be reported as corrupt
+    cfg->block_count = BLOCK_COUNT;
+    int err = lfs_mount(&lfs, cfg);
+    assert(err == LFS_ERR_INVAL || err == LFS_ERR_CORRUPT);
+'''
+
 
 # mount and grow the filesystem
 [cases.test_superblocks_shrink]
