@@ -4495,6 +4495,7 @@ static int lfs_mount_(lfs_t *lfs, const struct lfs_config *cfg) {
 
     // scan directory blocks for superblock and any global updates
     lfs_mdir_t dir = {.tail = {0, 1}};
+    lfs_size_t block_count = lfs->block_count;
     struct lfs_tortoise_t tortoise = {
         .pair = {LFS_BLOCK_NULL, LFS_BLOCK_NULL},
         .i = 1,
@@ -4608,8 +4609,9 @@ static int lfs_mount_(lfs_t *lfs, const struct lfs_config *cfg) {
             //
             // note we only check block_count after scanning, since older
             // superblock copies may have a stale block_count after
-            // lfs_fs_grow
-            lfs->block_count = superblock.block_count;
+            // lfs_fs_grow, and we only update lfs->block_count after
+            // scanning so a stale copy can't reject later metadata pairs
+            block_count = superblock.block_count;
 
             if (superblock.block_size != lfs->cfg->block_size) {
                 LFS_ERROR("Invalid block size (%"PRIu32" != %"PRIu32")",
@@ -4627,6 +4629,7 @@ static int lfs_mount_(lfs_t *lfs, const struct lfs_config *cfg) {
     }
 
     // check the block_count of the last superblock found
+    lfs->block_count = block_count;
     if (lfs->cfg->block_count && lfs->block_count != lfs->cfg->block_count) {
         LFS_ERROR("Invalid block count (%"PRIu32" != %"PRIu32")",
                 lfs->block_count, lfs->cfg->block_count);

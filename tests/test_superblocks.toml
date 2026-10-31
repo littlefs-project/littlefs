@@ -552,9 +552,16 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 
-    // grow
+    // grow, then write more so metadata moves into the new blocks
     lfs_mount(&lfs, cfg) => 0;
     lfs_fs_grow(&lfs, BLOCK_COUNT_2) => 0;
+    for (int i = 0; i < 10; i++) {
+        lfs_file_t file;
+        lfs_file_open(&lfs, &file, "dummy",
+                LFS_O_WRONLY | LFS_O_CREAT | LFS_O_EXCL) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+        lfs_remove(&lfs, "dummy") => 0;
+    }
     lfs_unmount(&lfs) => 0;
 
     if (KNOWN_BLOCK_COUNT) {
@@ -570,9 +577,11 @@ code = '''
     assert(fsinfo.block_count == BLOCK_COUNT_2);
     lfs_unmount(&lfs) => 0;
 
-    // mounting with the previous size should fail
+    // mounting with the previous size should fail, metadata may already
+    // live in the new blocks so this can also be reported as corrupt
     cfg->block_count = BLOCK_COUNT;
-    lfs_mount(&lfs, cfg) => LFS_ERR_INVAL;
+    int err = lfs_mount(&lfs, cfg);
+    assert(err == LFS_ERR_INVAL || err == LFS_ERR_CORRUPT);
 '''
 
 
