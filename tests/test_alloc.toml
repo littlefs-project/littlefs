@@ -786,11 +786,10 @@ code = '''
     // create one block hole for half a directory
     lfs_file_t file;
     lfs_file_open(&lfs, &file, "bump", LFS_O_WRONLY | LFS_O_CREAT) => 0;
+    uint8_t buffer[1024];
     for (lfs_size_t i = 0; i < cfg->block_size; i += 2) {
-        uint8_t buffer[1024];
         memcpy(&buffer[i], "hi", 2);
     }
-    uint8_t buffer[1024];
     lfs_file_write(&lfs, &file, buffer, cfg->block_size) => cfg->block_size;
     lfs_file_close(&lfs, &file) => 0;
 
