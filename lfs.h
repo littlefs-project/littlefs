@@ -571,6 +571,9 @@ int lfs_removeattr(lfs_t *lfs, const char *path, uint8_t type);
 // The mode that the file is opened in is determined by the flags, which
 // are values from the enum lfs_open_flags that are bitwise-ored together.
 //
+// Creating a new file with LFS_O_CREAT commits an empty file to storage.
+// Writes to the file are committed separately by sync or close.
+//
 // Returns a negative error code on failure.
 int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
         const char *path, int flags);
@@ -583,6 +586,9 @@ int lfs_file_open(lfs_t *lfs, lfs_file_t *file,
 //
 // The mode that the file is opened in is determined by the flags, which
 // are values from the enum lfs_open_flags that are bitwise-ored together.
+//
+// Creating a new file with LFS_O_CREAT commits an empty file to storage.
+// Writes to the file are committed separately by sync or close.
 //
 // The config struct provides additional config options per file as described
 // above. The config struct must remain allocated while the file is open, and

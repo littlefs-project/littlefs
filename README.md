@@ -110,8 +110,11 @@ directory functions, with the deviation that the allocation of filesystem
 structures must be provided by the user.
 
 All POSIX operations, such as remove and rename, are atomic, even in event
-of power-loss. Additionally, file updates are not actually committed to
-the filesystem until sync or close is called on the file.
+of power-loss. File data updates are not committed to the filesystem until
+sync or close completes successfully. Creating a new file is separate from
+writing its data: opening a new file with `LFS_O_CREAT` commits an empty file
+to the filesystem. If power is lost after creation but before its data is
+committed, the file can therefore exist with a size of zero after remounting.
 
 ## Other notes
 
