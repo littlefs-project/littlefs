@@ -14,7 +14,8 @@ env:
 jobs:
   # run tests
   test:
-    runs-on: ubuntu-latest
+    # Ubuntu 26.04 no longer provides the 32-bit MIPS cross-toolchain.
+    runs-on: ${{ matrix.arch == 'mips' && 'ubuntu-24.04' || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
