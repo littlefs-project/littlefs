@@ -12,15 +12,6 @@
 #include "lfs3_util.h"
 
 
-// Block device specific tracing
-#ifndef LFS3_FILEBD_TRACE
-#ifdef LFS3_FILEBD_YES_TRACE
-#define LFS3_FILEBD_TRACE(...) LFS3_TRACE(__VA_ARGS__)
-#else
-#define LFS3_FILEBD_TRACE(...)
-#endif
-#endif
-
 // filebd state
 typedef struct lfs3_filebd {
     int fd;

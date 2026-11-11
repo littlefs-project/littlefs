@@ -1245,10 +1245,10 @@ def main(path='-', *,
     ## trace parser
 
     # precompute trace regexes
-    init_pattern = re.compile(
+    mount_pattern = re.compile(
             '^(?P<file>[^ :]*):(?P<line>[0-9]+):trace:'
-                '.*?bd_createcfg\('
-                    '\s*(?P<ctx>\w+)'
+                '.*?mount\('
+                    '\s*(?P<ctx>\w+)' '\s*,'
                     '(?:'
                         'block_size=(?P<block_size>\w+)'
                         '|' 'block_count=(?P<block_count>\w+)'
@@ -1295,9 +1295,9 @@ def main(path='-', *,
 
         # note we can't do most ops until we know block_count/block_size
 
-        # bd init?
-        if 'bd_createcfg(' in line:
-            m = init_pattern.match(line)
+        # mount?
+        if 'mount(' in line:
+            m = mount_pattern.match(line)
             if not m:
                 return False
             # block_size/block_count missing?

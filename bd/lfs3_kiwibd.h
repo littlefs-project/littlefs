@@ -14,15 +14,6 @@
 #include "lfs3_util.h"
 
 
-// Block device specific tracing
-#ifndef LFS3_KIWIBD_TRACE
-#ifdef LFS3_KIWIBD_YES_TRACE
-#define LFS3_KIWIBD_TRACE(...) LFS3_TRACE(__VA_ARGS__)
-#else
-#define LFS3_KIWIBD_TRACE(...)
-#endif
-#endif
-
 // Type for measuring read/program/erase operations
 typedef uint64_t lfs3_kiwibd_io_t;
 typedef int64_t lfs3_kiwibd_sio_t;

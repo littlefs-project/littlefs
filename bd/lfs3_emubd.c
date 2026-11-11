@@ -166,52 +166,6 @@ static uint32_t lfs3_emubd_prng_(uint32_t *state) {
 
 int lfs3_emubd_createcfg(const struct lfs3_cfg *cfg, const char *path,
         const struct lfs3_emubd_cfg *bdcfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_createcfg("
-                "%p {"
-                    ".context=%p, "
-                    ".read=%p, "
-                    ".prog=%p, "
-                    ".erase=%p, "
-                    ".sync=%p, "
-                    ".read_size=%"PRIu32", "
-                    ".prog_size=%"PRIu32", "
-                    ".block_size=%"PRIu32", "
-                    ".block_count=%"PRIu32"}, "
-                "\"%s\", "
-                "%p {.erase_value=%"PRId32", "
-                    ".erase_cycles=%"PRIu32", "
-                    ".badblock_behavior=%"PRIu8", "
-                    ".power_cycles=%"PRIu32", "
-                    ".powerloss_behavior=%"PRIu8", "
-                    ".powerloss_cb=%p, "
-                    ".powerloss_data=%p, "
-                    ".seed=%"PRIu32", "
-                    ".read_sleep=%"PRIu64", "
-                    ".prog_sleep=%"PRIu64", "
-                    ".erase_sleep=%"PRIu64"})",
-            (void*)cfg,
-            cfg->context,
-            (void*)(uintptr_t)cfg->read,
-            (void*)(uintptr_t)cfg->prog,
-            (void*)(uintptr_t)cfg->erase,
-            (void*)(uintptr_t)cfg->sync,
-            cfg->read_size,
-            cfg->prog_size,
-            cfg->block_size,
-            cfg->block_count,
-            path,
-            (void*)bdcfg,
-            bdcfg->erase_value,
-            bdcfg->erase_cycles,
-            bdcfg->badblock_behavior,
-            bdcfg->power_cycles,
-            bdcfg->powerloss_behavior,
-            (void*)(uintptr_t)bdcfg->powerloss_cb,
-            bdcfg->powerloss_data,
-            bdcfg->seed,
-            bdcfg->read_sleep,
-            bdcfg->prog_sleep,
-            bdcfg->erase_sleep);
     lfs3_emubd_t *bd = cfg->context;
     bd->cfg = bdcfg;
 
@@ -305,11 +259,9 @@ int lfs3_emubd_createcfg(const struct lfs3_cfg *cfg, const char *path,
         }
     }
 
-    LFS3_EMUBD_TRACE("lfs3_emubd_createcfg -> %d", 0);
     return 0;
 
 failed:;
-    LFS3_EMUBD_TRACE("lfs3_emubd_createcfg -> %d", err);
     // clean up memory
     free(bd->blocks);
     if (bd->cfg->powerloss_behavior == LFS3_EMUBD_POWERLOSS_OOO) {
@@ -327,37 +279,11 @@ failed:;
 }
 
 int lfs3_emubd_create(const struct lfs3_cfg *cfg, const char *path) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_create("
-                "%p {"
-                    ".context=%p, "
-                    ".read=%p, "
-                    ".prog=%p, "
-                    ".erase=%p, "
-                    ".sync=%p, "
-                    ".read_size=%"PRIu32", "
-                    ".prog_size=%"PRIu32", "
-                    ".block_size=%"PRIu32", "
-                    ".block_count=%"PRIu32"}, "
-                "\"%s\")",
-            (void*)cfg,
-            cfg->context,
-            (void*)(uintptr_t)cfg->read,
-            (void*)(uintptr_t)cfg->prog,
-            (void*)(uintptr_t)cfg->erase,
-            (void*)(uintptr_t)cfg->sync,
-            cfg->read_size,
-            cfg->prog_size,
-            cfg->block_size,
-            cfg->block_count,
-            path);
     static const struct lfs3_emubd_cfg defaults = {.erase_value=-1};
-    int err = lfs3_emubd_createcfg(cfg, path, &defaults);
-    LFS3_EMUBD_TRACE("lfs3_emubd_create -> %d", err);
-    return err;
+    return lfs3_emubd_createcfg(cfg, path, &defaults);
 }
 
 int lfs3_emubd_destroy(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_destroy(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
 
     // decrement reference counts
@@ -388,7 +314,6 @@ int lfs3_emubd_destroy(const struct lfs3_cfg *cfg) {
         }
     }
 
-    LFS3_EMUBD_TRACE("lfs3_emubd_destroy -> %d", 0);
     return 0;
 }
 
@@ -397,9 +322,6 @@ int lfs3_emubd_destroy(const struct lfs3_cfg *cfg) {
 
 int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, void *buffer, lfs3_size_t size) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_read(%p, "
-                "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
-            (void*)cfg, block, off, buffer, size);
     lfs3_emubd_t *bd = cfg->context;
 
     // check if read is valid
@@ -419,7 +341,6 @@ int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
                     || (bd->cfg->badblock_behavior
                             == LFS3_EMUBD_BADBLOCK_READQUASICORRUPT
                         && (lfs3_emubd_prng_(&bd->prng) & 1))) {
-                LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", LFS3_ERR_CORRUPT);
                 return LFS3_ERR_CORRUPT;
             } else if (LFS3_IFDEF_CONDEMN(
                     bd->cfg->badblock_behavior
@@ -429,7 +350,6 @@ int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
                             && (lfs3_emubd_prng_(&bd->prng) & 1)),
                     false)) {
                 #ifdef LFS3_CONDEMN
-                LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", LFS3_ERR_BAD);
                 return LFS3_ERR_BAD;
                 #endif
             }
@@ -470,9 +390,7 @@ int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
                 .tv_nsec=bd->cfg->read_sleep%1000000000},
             NULL);
         if (err) {
-            err = -errno;
-            LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", err);
-            return err;
+            return -errno;
         }
     }
 
@@ -487,7 +405,6 @@ int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
                         && (lfs3_emubd_prng_(&bd->prng) & 1)),
                 false)) {
             #ifdef LFS3_REPAIR
-            LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", LFS3_ERR_DAMAGED);
             return LFS3_ERR_DAMAGED;
             #endif
         } else if (LFS3_IFDEF_CONDEMN(
@@ -498,20 +415,15 @@ int lfs3_emubd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
                         && (lfs3_emubd_prng_(&bd->prng) & 1)),
                 false)) {
             #ifdef LFS3_CONDEMN
-            LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", LFS3_ERR_CONDEMNED);
             return LFS3_ERR_CONDEMNED;
             #endif
         }
     }
-    LFS3_EMUBD_TRACE("lfs3_emubd_read -> %d", 0);
     return 0;
 }
 
 int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, const void *buffer, lfs3_size_t size) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_prog(%p, "
-                "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
-            (void*)cfg, block, off, buffer, size);
     lfs3_emubd_t *bd = cfg->context;
 
     // check if write is valid
@@ -540,7 +452,6 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                 lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg,
                         bd->blocks[block]);
                 if (!b) {
-                    LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", LFS3_ERR_NOMEM);
                     return LFS3_ERR_NOMEM;
                 }
                 bd->blocks[block] = b;
@@ -556,16 +467,12 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                             (off_t)block*cfg->block_size + (off_t)off,
                             SEEK_SET);
                     if (res1 < 0) {
-                        int err = -errno;
-                        LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", err);
-                        return err;
+                        return -errno;
                     }
 
                     ssize_t res2 = write(bd->disk->fd, &b->data[off], size);
                     if (res2 < 0) {
-                        int err = -errno;
-                        LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", err);
-                        return err;
+                        return -errno;
                     }
                 }
 
@@ -577,7 +484,6 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                 lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg,
                         bd->blocks[block]);
                 if (!b) {
-                    LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", LFS3_ERR_NOMEM);
                     return LFS3_ERR_NOMEM;
                 }
                 bd->blocks[block] = b;
@@ -596,16 +502,12 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                             (off_t)block*cfg->block_size + (off_t)off,
                             SEEK_SET);
                     if (res1 < 0) {
-                        int err = -errno;
-                        LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", err);
-                        return err;
+                        return -errno;
                     }
 
                     ssize_t res2 = write(bd->disk->fd, &b->data[off], size);
                     if (res2 < 0) {
-                        int err = -errno;
-                        LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", err);
-                        return err;
+                        return -errno;
                     }
                 }
 
@@ -627,9 +529,7 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                                     (off_t)i*cfg->block_size,
                                     SEEK_SET);
                             if (res1 < 0) {
-                                int err = -errno;
-                                LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", err);
-                                return err;
+                                return -errno;
                             }
 
                             ssize_t res2 = write(bd->disk->fd,
@@ -638,9 +538,7 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                                         : bd->disk->scratch,
                                     cfg->block_size);
                             if (res2 < 0) {
-                                int err = -errno;
-                                LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", err);
-                                return err;
+                                return -errno;
                             }
                         }
                     }
@@ -654,7 +552,6 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                 lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg,
                         bd->blocks[block]);
                 if (!b) {
-                    LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", LFS3_ERR_NOMEM);
                     return LFS3_ERR_NOMEM;
                 }
                 bd->blocks[block] = b;
@@ -677,16 +574,12 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                             (off_t)block*cfg->block_size + (off_t)off,
                             SEEK_SET);
                     if (res1 < 0) {
-                        int err = -errno;
-                        LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", err);
-                        return err;
+                        return -errno;
                     }
 
                     ssize_t res2 = write(bd->disk->fd, &b->data[off], size);
                     if (res2 < 0) {
-                        int err = -errno;
-                        LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", err);
-                        return err;
+                        return -errno;
                     }
                 }
             }
@@ -707,9 +600,7 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                                     (off_t)i*cfg->block_size,
                                     SEEK_SET);
                             if (res1 < 0) {
-                                int err = -errno;
-                                LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", err);
-                                return err;
+                                return -errno;
                             }
 
                             ssize_t res2 = write(bd->disk->fd,
@@ -718,9 +609,7 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                                         : bd->disk->scratch,
                                     cfg->block_size);
                             if (res2 < 0) {
-                                int err = -errno;
-                                LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", err);
-                                return err;
+                                return -errno;
                             }
                         }
                     }
@@ -732,7 +621,6 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
     // mutate the block
     lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg, bd->blocks[block]);
     if (!b) {
-        LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", LFS3_ERR_NOMEM);
         return LFS3_ERR_NOMEM;
     }
     bd->blocks[block] = b;
@@ -742,7 +630,6 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
         // erroring progs? error
         if (bd->cfg->badblock_behavior
                 == LFS3_EMUBD_BADBLOCK_PROGCORRUPT) {
-            LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", LFS3_ERR_CORRUPT);
             return LFS3_ERR_CORRUPT;
 
         } else if (LFS3_IFDEF_CONDEMN(
@@ -750,7 +637,6 @@ int lfs3_emubd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
                         == LFS3_EMUBD_BADBLOCK_PROGBAD,
                 false)) {
             #ifdef LFS3_CONDEMN
-            LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", LFS3_ERR_BAD);
             return LFS3_ERR_BAD;
             #endif
 
@@ -796,16 +682,12 @@ progged:;
                 (off_t)block*cfg->block_size + (off_t)off,
                 SEEK_SET);
         if (res1 < 0) {
-            int err = -errno;
-            LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", err);
-            return err;
+            return -errno;
         }
 
         ssize_t res2 = write(bd->disk->fd, &b->data[off], size);
         if (res2 < 0) {
-            int err = -errno;
-            LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", err);
-            return err;
+            return -errno;
         }
     }
 
@@ -825,9 +707,7 @@ progged:;
                 .tv_nsec=bd->cfg->prog_sleep%1000000000},
             NULL);
         if (err) {
-            err = -errno;
-            LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", err);
-            return err;
+            return -errno;
         }
     }
 
@@ -839,7 +719,6 @@ progged:;
                     == LFS3_EMUBD_BADBLOCK_PROGDAMAGED,
                 false)) {
             #ifdef LFS3_REPAIR
-            LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", LFS3_ERR_DAMAGED);
             return LFS3_ERR_DAMAGED;
             #endif
         } else if (LFS3_IFDEF_CONDEMN(
@@ -847,18 +726,14 @@ progged:;
                     == LFS3_EMUBD_BADBLOCK_PROGCONDEMNED,
                 false)) {
             #ifdef LFS3_CONDEMN
-            LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", LFS3_ERR_CONDEMNED);
             return LFS3_ERR_CONDEMNED;
             #endif
         }
     }
-    LFS3_EMUBD_TRACE("lfs3_emubd_prog -> %d", 0);
     return 0;
 }
 
 int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_erase(%p, 0x%"PRIx32" (%"PRIu32"))",
-            (void*)cfg, block, cfg->block_size);
     lfs3_emubd_t *bd = cfg->context;
 
     // check if erase is valid
@@ -875,7 +750,6 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
                 lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg,
                         bd->blocks[block]);
                 if (!b) {
-                    LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", LFS3_ERR_NOMEM);
                     return LFS3_ERR_NOMEM;
                 }
                 bd->blocks[block] = b;
@@ -891,17 +765,13 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
                             (off_t)block*cfg->block_size,
                             SEEK_SET);
                     if (res1 < 0) {
-                        int err = -errno;
-                        LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", err);
-                        return err;
+                        return -errno;
                     }
 
                     ssize_t res2 = write(bd->disk->fd,
                             b->data, cfg->block_size);
                     if (res2 < 0) {
-                        int err = -errno;
-                        LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", err);
-                        return err;
+                        return -errno;
                     }
                 }
 
@@ -913,7 +783,6 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
                 lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg,
                         bd->blocks[block]);
                 if (!b) {
-                    LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", LFS3_ERR_NOMEM);
                     return LFS3_ERR_NOMEM;
                 }
                 bd->blocks[block] = b;
@@ -934,17 +803,13 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
                             (off_t)block*cfg->block_size,
                             SEEK_SET);
                     if (res1 < 0) {
-                        int err = -errno;
-                        LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", err);
-                        return err;
+                        return -errno;
                     }
 
                     ssize_t res2 = write(bd->disk->fd,
                             b->data, cfg->block_size);
                     if (res2 < 0) {
-                        int err = -errno;
-                        LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", err);
-                        return err;
+                        return -errno;
                     }
                 }
 
@@ -963,9 +828,7 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
                                     (off_t)i*cfg->block_size,
                                     SEEK_SET);
                             if (res1 < 0) {
-                                int err = -errno;
-                                LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", err);
-                                return err;
+                                return -errno;
                             }
 
                             ssize_t res2 = write(bd->disk->fd,
@@ -974,9 +837,7 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
                                         : bd->disk->scratch,
                                     cfg->block_size);
                             if (res2 < 0) {
-                                int err = -errno;
-                                LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", err);
-                                return err;
+                                return -errno;
                             }
                         }
                     }
@@ -990,7 +851,6 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
                 lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg,
                         bd->blocks[block]);
                 if (!b) {
-                    LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", LFS3_ERR_NOMEM);
                     return LFS3_ERR_NOMEM;
                 }
                 bd->blocks[block] = b;
@@ -1015,17 +875,13 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
                             (off_t)block*cfg->block_size,
                             SEEK_SET);
                     if (res1 < 0) {
-                        int err = -errno;
-                        LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", err);
-                        return err;
+                        return -errno;
                     }
 
                     ssize_t res2 = write(bd->disk->fd,
                             b->data, cfg->block_size);
                     if (res2 < 0) {
-                        int err = -errno;
-                        LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", err);
-                        return err;
+                        return -errno;
                     }
                 }
             }
@@ -1046,9 +902,7 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
                                     (off_t)i*cfg->block_size,
                                     SEEK_SET);
                             if (res1 < 0) {
-                                int err = -errno;
-                                LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", err);
-                                return err;
+                                return -errno;
                             }
 
                             ssize_t res2 = write(bd->disk->fd,
@@ -1057,9 +911,7 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
                                         : bd->disk->scratch,
                                     cfg->block_size);
                             if (res2 < 0) {
-                                int err = -errno;
-                                LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", err);
-                                return err;
+                                return -errno;
                             }
                         }
                     }
@@ -1071,7 +923,6 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
     // mutate the block
     lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg, bd->blocks[block]);
     if (!b) {
-        LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", LFS3_ERR_NOMEM);
         return LFS3_ERR_NOMEM;
     }
     bd->blocks[block] = b;
@@ -1086,7 +937,6 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
         // erroring erases? error
         if (bd->cfg->badblock_behavior
                 == LFS3_EMUBD_BADBLOCK_ERASECORRUPT) {
-            LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", LFS3_ERR_CORRUPT);
             return LFS3_ERR_CORRUPT;
 
         } else if (LFS3_IFDEF_CONDEMN(
@@ -1094,7 +944,6 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
                         == LFS3_EMUBD_BADBLOCK_ERASEBAD,
                 false)) {
             #ifdef LFS3_CONDEMN
-            LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", LFS3_ERR_BAD);
             return LFS3_ERR_BAD;
             #endif
 
@@ -1124,16 +973,12 @@ int lfs3_emubd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
                     (off_t)block*cfg->block_size,
                     SEEK_SET);
             if (res1 < 0) {
-                int err = -errno;
-                LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", err);
-                return err;
+                return -errno;
             }
 
             ssize_t res2 = write(bd->disk->fd, b->data, cfg->block_size);
             if (res2 < 0) {
-                int err = -errno;
-                LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", err);
-                return err;
+                return -errno;
             }
         }
     }
@@ -1156,9 +1001,7 @@ erased:;
                 .tv_nsec=bd->cfg->erase_sleep%1000000000},
             NULL);
         if (err) {
-            err = -errno;
-            LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", err);
-            return err;
+            return -errno;
         }
     }
 
@@ -1170,7 +1013,6 @@ erased:;
                     == LFS3_EMUBD_BADBLOCK_ERASEDAMAGED,
                 false)) {
             #ifdef LFS3_REPAIR
-            LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", LFS3_ERR_DAMAGED);
             return LFS3_ERR_DAMAGED;
             #endif
         } else if (LFS3_IFDEF_CONDEMN(
@@ -1178,17 +1020,14 @@ erased:;
                         == LFS3_EMUBD_BADBLOCK_ERASECONDEMNED,
                 false)) {
             #ifdef LFS3_CONDEMN
-            LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", LFS3_ERR_CONDEMNED);
             return LFS3_ERR_CONDEMNED;
             #endif
         }
     }
-    LFS3_EMUBD_TRACE("lfs3_emubd_erase -> %d", 0);
     return 0;
 }
 
 int lfs3_emubd_sync(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_sync(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
 
     // emulate out-of-order writes? save a snapshot on sync
@@ -1199,7 +1038,6 @@ int lfs3_emubd_sync(const struct lfs3_cfg *cfg) {
         }
     }
 
-    LFS3_EMUBD_TRACE("lfs3_emubd_sync -> %d", 0);
     return 0;
 }
 
@@ -1207,7 +1045,6 @@ int lfs3_emubd_sync(const struct lfs3_cfg *cfg) {
 /// Additional emubd features for testing ///
 
 lfs3_emubd_sns_t lfs3_emubd_simtime(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_simtime(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
 
     // error if all possible timings are zero
@@ -1220,12 +1057,10 @@ lfs3_emubd_sns_t lfs3_emubd_simtime(const struct lfs3_cfg *cfg) {
             && bd->cfg->read_utiming == 0
             && bd->cfg->prog_utiming == 0
             && bd->cfg->erase_utiming == 0) {
-        LFS3_EMUBD_TRACE("lfs3_emubd_simtime -> %d", LFS3_ERR_NOTSUP);
         return LFS3_ERR_NOTSUP;
     }
 
-    lfs3_emubd_ns_t ns
-            = (bd->cfg->read_timing * bd->reads)
+    return (bd->cfg->read_timing * bd->reads)
             + (bd->cfg->prog_timing * bd->progs)
             + (bd->cfg->erase_timing * bd->erases)
             + (bd->cfg->read_wtiming * bd->wreads)
@@ -1234,14 +1069,11 @@ lfs3_emubd_sns_t lfs3_emubd_simtime(const struct lfs3_cfg *cfg) {
             + (bd->cfg->read_utiming * bd->readed)
             + (bd->cfg->prog_utiming * bd->progged)
             + (bd->cfg->erase_utiming * bd->erased);
-
-    LFS3_EMUBD_TRACE("lfs3_emubd_simtime -> %"PRIu64, ns);
-    return ns;
 }
 
 int lfs3_emubd_simreset(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_simreset(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
+
     bd->reads = 0;
     bd->progs = 0;
     bd->erases = 0;
@@ -1251,93 +1083,71 @@ int lfs3_emubd_simreset(const struct lfs3_cfg *cfg) {
     bd->readed = 0;
     bd->progged = 0;
     bd->erased = 0;
-    LFS3_EMUBD_TRACE("lfs3_emubd_simreset -> %d", 0);
     return 0;
 }
 
 int lfs3_emubd_simpause(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_simpause(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
+
     bd->paused += 1;
-    LFS3_EMUBD_TRACE("lfs3_emubd_simpause -> %d", 0);
     return 0;
 }
 
 int lfs3_emubd_simresume(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_simresume(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
+
     LFS3_ASSERT(bd->paused);
     bd->paused -= 1;
-    LFS3_EMUBD_TRACE("lfs3_emubd_simresume -> %d", 0);
     return 0;
 }
 
 lfs3_emubd_sio_t lfs3_emubd_reads(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_reads(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
-    LFS3_EMUBD_TRACE("lfs3_emubd_reads -> %"PRIu64, bd->reads);
     return bd->reads;
 }
 
 lfs3_emubd_sio_t lfs3_emubd_progs(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_progs(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
-    LFS3_EMUBD_TRACE("lfs3_emubd_progs -> %"PRIu64, bd->progs);
     return bd->progs;
 }
 
 lfs3_emubd_sio_t lfs3_emubd_erases(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_erases(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
-    LFS3_EMUBD_TRACE("lfs3_emubd_erases -> %"PRIu64, bd->erases);
     return bd->erases;
 }
 
 lfs3_emubd_sio_t lfs3_emubd_wreads(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_wreads(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
-    LFS3_EMUBD_TRACE("lfs3_emubd_wreads -> %"PRIu64, bd->wreads);
     return bd->wreads;
 }
 
 lfs3_emubd_sio_t lfs3_emubd_wprogs(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_wprogs(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
-    LFS3_EMUBD_TRACE("lfs3_emubd_wprogs -> %"PRIu64, bd->wprogs);
     return bd->wprogs;
 }
 
 lfs3_emubd_sio_t lfs3_emubd_werases(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_werases(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
-    LFS3_EMUBD_TRACE("lfs3_emubd_werases -> %"PRIu64, bd->werases);
     return bd->werases;
 }
 
 lfs3_emubd_sio_t lfs3_emubd_readed(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_readed(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
-    LFS3_EMUBD_TRACE("lfs3_emubd_readed -> %"PRIu64, bd->readed);
     return bd->readed;
 }
 
 lfs3_emubd_sio_t lfs3_emubd_progged(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_progged(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
-    LFS3_EMUBD_TRACE("lfs3_emubd_progged -> %"PRIu64, bd->progged);
     return bd->progged;
 }
 
 lfs3_emubd_sio_t lfs3_emubd_erased(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_erased(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
-    LFS3_EMUBD_TRACE("lfs3_emubd_erased -> %"PRIu64, bd->erased);
     return bd->erased;
 }
 
 lfs3_emubd_swear_t lfs3_emubd_wear(const struct lfs3_cfg *cfg,
         lfs3_block_t block) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_wear(%p, %"PRIu32")", (void*)cfg, block);
     lfs3_emubd_t *bd = cfg->context;
 
     // check if block is valid
@@ -1352,14 +1162,11 @@ lfs3_emubd_swear_t lfs3_emubd_wear(const struct lfs3_cfg *cfg,
         wear = 0;
     }
 
-    LFS3_EMUBD_TRACE("lfs3_emubd_wear -> %"PRIi32, wear);
     return wear;
 }
 
 int lfs3_emubd_setwear(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_emubd_wear_t wear) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_setwear(%p, %"PRIu32", %"PRIi32")",
-            (void*)cfg, block, wear);
     lfs3_emubd_t *bd = cfg->context;
 
     // check if block is valid
@@ -1369,14 +1176,12 @@ int lfs3_emubd_setwear(const struct lfs3_cfg *cfg,
     if ((!bd->blocks[block] && wear == 0)
             // matching wear? no reason to allocate
             || (bd->blocks[block] && bd->blocks[block]->wear == wear)) {
-        LFS3_EMUBD_TRACE("lfs3_emubd_setwear -> %d", 0);
         return 0;
     }
 
     // mutate the block
     lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg, bd->blocks[block]);
     if (!b) {
-        LFS3_EMUBD_TRACE("lfs3_emubd_setwear -> %d", LFS3_ERR_NOMEM);
         return LFS3_ERR_NOMEM;
     }
     bd->blocks[block] = b;
@@ -1384,14 +1189,11 @@ int lfs3_emubd_setwear(const struct lfs3_cfg *cfg,
     // set the wear
     b->wear = wear;
 
-    LFS3_EMUBD_TRACE("lfs3_emubd_setwear -> %d", 0);
     return 0;
 }
 
 int lfs3_emubd_mkbad(const struct lfs3_cfg *cfg,
         lfs3_block_t block) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_mkbad(%p, %"PRIu32")",
-            (void*)cfg, block);
     lfs3_emubd_t *bd = cfg->context;
 
     // check if block is valid
@@ -1400,7 +1202,6 @@ int lfs3_emubd_mkbad(const struct lfs3_cfg *cfg,
     // mutate the block
     lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg, bd->blocks[block]);
     if (!b) {
-        LFS3_EMUBD_TRACE("lfs3_emubd_mkbad -> %d", LFS3_ERR_NOMEM);
         return LFS3_ERR_NOMEM;
     }
     bd->blocks[block] = b;
@@ -1414,14 +1215,11 @@ int lfs3_emubd_mkbad(const struct lfs3_cfg *cfg,
                 % (cfg->block_size*8);
     }
 
-    LFS3_EMUBD_TRACE("lfs3_emubd_mkbad -> %d", 0);
     return 0;
 }
 
 int lfs3_emubd_mkgood(const struct lfs3_cfg *cfg,
         lfs3_block_t block) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_mkgood(%p, %"PRIu32")",
-            (void*)cfg, block);
     lfs3_emubd_t *bd = cfg->context;
 
     // check if block is valid
@@ -1431,14 +1229,12 @@ int lfs3_emubd_mkgood(const struct lfs3_cfg *cfg,
     if (!bd->blocks[block]
             // matching wear? no reason to allocate
             || bd->blocks[block]->wear == 0) {
-        LFS3_EMUBD_TRACE("lfs3_emubd_mkgood -> %d", 0);
         return 0;
     }
 
     // mutate the block
     lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg, bd->blocks[block]);
     if (!b) {
-        LFS3_EMUBD_TRACE("lfs3_emubd_mkgood -> %d", LFS3_ERR_NOMEM);
         return LFS3_ERR_NOMEM;
     }
     bd->blocks[block] = b;
@@ -1446,13 +1242,11 @@ int lfs3_emubd_mkgood(const struct lfs3_cfg *cfg,
     // set the wear
     b->wear = 0;
 
-    LFS3_EMUBD_TRACE("lfs3_emubd_mkgood -> %d", 0);
     return 0;
 }
 
 lfs3_ssize_t lfs3_emubd_badbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_badbit(%p, %"PRIu32")", (void*)cfg, block);
     lfs3_emubd_t *bd = cfg->context;
 
     // check if block is valid
@@ -1467,14 +1261,11 @@ lfs3_ssize_t lfs3_emubd_badbit(const struct lfs3_cfg *cfg,
         bad_bit = 0;
     }
 
-    LFS3_EMUBD_TRACE("lfs3_emubd_badbit -> %"PRIi32, bad_bit);
     return bad_bit;
 }
 
 int lfs3_emubd_setbadbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_size_t bit) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_setbadbit(%p, %"PRIu32", %"PRIu32")",
-            (void*)cfg, block, bit);
     lfs3_emubd_t *bd = cfg->context;
 
     // check if block is valid
@@ -1483,7 +1274,6 @@ int lfs3_emubd_setbadbit(const struct lfs3_cfg *cfg,
     // mutate the block
     lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg, bd->blocks[block]);
     if (!b) {
-        LFS3_EMUBD_TRACE("lfs3_emubd_setbadbit -> %d", LFS3_ERR_NOMEM);
         return LFS3_ERR_NOMEM;
     }
     bd->blocks[block] = b;
@@ -1491,14 +1281,11 @@ int lfs3_emubd_setbadbit(const struct lfs3_cfg *cfg,
     // set the bad bit and mark as fixed
     b->bad_bit = 0x80000000 | bit;
 
-    LFS3_EMUBD_TRACE("lfs3_emubd_setbadbit -> %d", 0);
     return 0;
 }
 
 int lfs3_emubd_randomizebadbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_randomizebadbit(%p, %"PRIu32")",
-            (void*)cfg, block);
     lfs3_emubd_t *bd = cfg->context;
 
     // check if block is valid
@@ -1507,7 +1294,6 @@ int lfs3_emubd_randomizebadbit(const struct lfs3_cfg *cfg,
     // mutate the block
     lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg, bd->blocks[block]);
     if (!b) {
-        LFS3_EMUBD_TRACE("lfs3_emubd_randomizebadbit -> %d", LFS3_ERR_NOMEM);
         return LFS3_ERR_NOMEM;
     }
     bd->blocks[block] = b;
@@ -1515,14 +1301,11 @@ int lfs3_emubd_randomizebadbit(const struct lfs3_cfg *cfg,
     // mark the bad bit as randomized
     b->bad_bit &= ~0x80000000;
 
-    LFS3_EMUBD_TRACE("lfs3_emubd_randomizebadbit -> %d", 0);
     return 0;
 }
 
 int lfs3_emubd_mkbadbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_size_t bit) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_mkbadbit(%p, %"PRIu32", %"PRIu32")",
-            (void*)cfg, block, bit);
     lfs3_emubd_t *bd = cfg->context;
 
     // check if block is valid
@@ -1531,7 +1314,6 @@ int lfs3_emubd_mkbadbit(const struct lfs3_cfg *cfg,
     // mutate the block
     lfs3_emubd_block_t *b = lfs3_emubd_mutblock(cfg, bd->blocks[block]);
     if (!b) {
-        LFS3_EMUBD_TRACE("lfs3_emubd_mkbadbit -> %d", LFS3_ERR_NOMEM);
         return LFS3_ERR_NOMEM;
     }
     bd->blocks[block] = b;
@@ -1541,7 +1323,6 @@ int lfs3_emubd_mkbadbit(const struct lfs3_cfg *cfg,
     // set the bad bit and mark as fixed
     b->bad_bit = 0x80000000 | bit;
 
-    LFS3_EMUBD_TRACE("lfs3_emubd_mkbadbit -> %d", 0);
     return 0;
 }
 
@@ -1585,22 +1366,16 @@ int lfs3_emubd_flipbit_(const struct lfs3_cfg *cfg,
 
 int lfs3_emubd_flipbit(const struct lfs3_cfg *cfg,
         lfs3_block_t block, lfs3_size_t bit) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_flipbit(%p, %"PRIu32", %"PRIu32")",
-            (void*)cfg, block, bit);
-
     // flip the bit
     int err = lfs3_emubd_flipbit_(cfg, block, bit);
     if (err) {
-        LFS3_EMUBD_TRACE("lfs3_emubd_flipbit -> %d", err);
         return err;
     }
 
-    LFS3_EMUBD_TRACE("lfs3_emubd_flipbit -> %d", 0);
     return 0;
 }
 
 int lfs3_emubd_flip(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_flip(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
 
     // flip all bits in bad blocks, make sure not to allocate blocks we
@@ -1610,67 +1385,48 @@ int lfs3_emubd_flip(const struct lfs3_cfg *cfg) {
         if (b && b->wear > bd->cfg->erase_cycles) {
             int err = lfs3_emubd_flipbit_(cfg, i, b->bad_bit & 0x7fffffff);
             if (err) {
-                LFS3_EMUBD_TRACE("lfs3_emubd_flip -> %d", err);
                 return err;
             }
         }
     }
 
-    LFS3_EMUBD_TRACE("lfs3_emubd_flip -> %d", 0);
     return 0;
 }
 
 lfs3_emubd_spowercycles_t lfs3_emubd_powercycles(
         const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_powercycles(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
-
-    LFS3_EMUBD_TRACE("lfs3_emubd_powercycles -> %"PRIi32, bd->power_cycles);
     return bd->power_cycles;
 }
 
 int lfs3_emubd_setpowercycles(const struct lfs3_cfg *cfg,
         lfs3_emubd_powercycles_t power_cycles) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_setpowercycles(%p, %"PRIi32")",
-            (void*)cfg, power_cycles);
     lfs3_emubd_t *bd = cfg->context;
 
     bd->power_cycles = power_cycles;
-
-    LFS3_EMUBD_TRACE("lfs3_emubd_powercycles -> %d", 0);
     return 0;
 }
 
 void lfs3_emubd_seed(const struct lfs3_cfg *cfg, uint32_t seed) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_seed(%p, 0x%08"PRIx32")",
-            (void*)cfg, seed);
     lfs3_emubd_t *bd = cfg->context;
 
     bd->prng = seed;
-
-    LFS3_EMUBD_TRACE("lfs3_emubd_seed -> _");
 }
 
 uint32_t lfs3_emubd_prng(const struct lfs3_cfg *cfg) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_prng(%p)", (void*)cfg);
     lfs3_emubd_t *bd = cfg->context;
 
-    uint32_t x = lfs3_emubd_prng_(&bd->prng);
-
-    LFS3_EMUBD_TRACE("lfs3_emubd_prng -> 0x%08"PRIx32, x);
-    return x;
+    return lfs3_emubd_prng_(&bd->prng);
 }
 
 
 int lfs3_emubd_cpy(const struct lfs3_cfg *cfg, lfs3_emubd_t *copy) {
-    LFS3_EMUBD_TRACE("lfs3_emubd_cpy(%p, %p)", (void*)cfg, (void*)copy);
     lfs3_emubd_t *bd = cfg->context;
 
     // lazily copy over our block array
     copy->blocks = malloc(
             cfg->block_count * sizeof(lfs3_emubd_block_t*));
     if (!copy->blocks) {
-        LFS3_EMUBD_TRACE("lfs3_emubd_cpy -> %d", LFS3_ERR_NOMEM);
         return LFS3_ERR_NOMEM;
     }
     for (lfs3_block_t i = 0; i < cfg->block_count; i++) {
@@ -1681,7 +1437,6 @@ int lfs3_emubd_cpy(const struct lfs3_cfg *cfg, lfs3_emubd_t *copy) {
         copy->ooo_before = malloc(
                 cfg->block_count * sizeof(lfs3_emubd_block_t*));
         if (!copy->ooo_before) {
-            LFS3_EMUBD_TRACE("lfs3_emubd_cpy -> %d", LFS3_ERR_NOMEM);
             return LFS3_ERR_NOMEM;
         }
         for (lfs3_block_t i = 0; i < cfg->block_count; i++) {
@@ -1691,7 +1446,6 @@ int lfs3_emubd_cpy(const struct lfs3_cfg *cfg, lfs3_emubd_t *copy) {
         copy->ooo_after = malloc(
                 cfg->block_count * sizeof(lfs3_emubd_block_t*));
         if (!copy->ooo_after) {
-            LFS3_EMUBD_TRACE("lfs3_emubd_cpy -> %d", LFS3_ERR_NOMEM);
             return LFS3_ERR_NOMEM;
         }
         for (lfs3_block_t i = 0; i < cfg->block_count; i++) {
@@ -1718,7 +1472,6 @@ int lfs3_emubd_cpy(const struct lfs3_cfg *cfg, lfs3_emubd_t *copy) {
     }
     copy->cfg = bd->cfg;
 
-    LFS3_EMUBD_TRACE("lfs3_emubd_cpy -> %d", 0);
     return 0;
 }
 

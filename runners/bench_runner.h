@@ -47,14 +47,31 @@
 #ifndef LFS3_NO_TRACE
 void bench_trace(const char *fmt, ...);
 #define LFS3_TRACE_(fmt, ...) \
-    bench_trace("%s:%d:trace: " fmt "%s\n", __FILE__, __LINE__, __VA_ARGS__)
+    bench_trace("%s:%d:trace: " fmt "%s\n", \
+        __FILE__, __LINE__, __VA_ARGS__)
 #define LFS3_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
-#define LFS3_EMUBD_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
-#define LFS3_KIWIBD_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
 #else
 #define LFS3_TRACE(...)
-#define LFS3_EMUBD_TRACE(...)
-#define LFS3_KIWIBD_TRACE(...)
+#endif
+
+#if !defined(LFS3_NO_TRACE) && !defined(LFS3_NO_FSTRACE)
+void bench_fstrace(const char *fmt, ...);
+#define LFS3_FSTRACE_(fmt, ...) \
+    bench_fstrace("%s:%d:trace: " fmt "%s\n", \
+        __FILE__, __LINE__, __VA_ARGS__)
+#define LFS3_FSTRACE(...) LFS3_FSTRACE_(__VA_ARGS__, "")
+#else
+#define LFS3_FSTRACE(...)
+#endif
+
+#if !defined(LFS3_NO_TRACE) && !defined(LFS3_NO_BDTRACE)
+void bench_bdtrace(const char *fmt, ...);
+#define LFS3_BDTRACE_(fmt, ...) \
+    bench_bdtrace("%s:%d:trace: " fmt "%s\n", \
+        __FILE__, __LINE__, __VA_ARGS__)
+#define LFS3_BDTRACE(...) LFS3_BDTRACE_(__VA_ARGS__, "")
+#else
+#define LFS3_BDTRACE(...)
 #endif
 
 

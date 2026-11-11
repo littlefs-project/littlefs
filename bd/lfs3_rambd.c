@@ -9,16 +9,6 @@
 
 int lfs3_rambd_createcfg(const struct lfs3_cfg *cfg,
         const struct lfs3_rambd_cfg *bdcfg) {
-    LFS3_RAMBD_TRACE("lfs3_rambd_createcfg(%p {.context=%p, "
-                ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
-                ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
-                ".block_size=%"PRIu32", .block_count=%"PRIu32"}, "
-                "%p {.buffer=%p})",
-            (void*)cfg, cfg->context,
-            (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
-            (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
-            cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
-            (void*)bdcfg, bdcfg->buffer);
     lfs3_rambd_t *bd = cfg->context;
     bd->cfg = bdcfg;
 
@@ -28,7 +18,6 @@ int lfs3_rambd_createcfg(const struct lfs3_cfg *cfg,
     } else {
         bd->mem = lfs3_malloc(cfg->block_size * cfg->block_count);
         if (!bd->mem) {
-            LFS3_RAMBD_TRACE("lfs3_rambd_createcfg -> %d", LFS3_ERR_NOMEM);
             return LFS3_ERR_NOMEM;
         }
     }
@@ -36,41 +25,27 @@ int lfs3_rambd_createcfg(const struct lfs3_cfg *cfg,
     // zero for reproducibility
     memset(bd->mem, 0, cfg->block_size * cfg->block_count);
 
-    LFS3_RAMBD_TRACE("lfs3_rambd_createcfg -> %d", 0);
     return 0;
 }
 
 int lfs3_rambd_create(const struct lfs3_cfg *cfg) {
-    LFS3_RAMBD_TRACE("lfs3_rambd_create(%p {.context=%p, "
-                ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
-                ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
-                ".block_size=%"PRIu32", .block_count=%"PRIu32"})",
-            (void*)cfg, cfg->context,
-            (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
-            (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
-            cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count);
     static const struct lfs3_rambd_cfg defaults = {0};
-    int err = lfs3_rambd_createcfg(cfg, &defaults);
-    LFS3_RAMBD_TRACE("lfs3_rambd_create -> %d", err);
-    return err;
+    return lfs3_rambd_createcfg(cfg, &defaults);
 }
 
 int lfs3_rambd_destroy(const struct lfs3_cfg *cfg) {
-    LFS3_RAMBD_TRACE("lfs3_rambd_destroy(%p)", (void*)cfg);
-    // clean up memory
     lfs3_rambd_t *bd = cfg->context;
+
+    // clean up memory
     if (!bd->cfg->buffer) {
         lfs3_free(bd->mem);
     }
-    LFS3_RAMBD_TRACE("lfs3_rambd_destroy -> %d", 0);
+
     return 0;
 }
 
 int lfs3_rambd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, void *buffer, lfs3_size_t size) {
-    LFS3_RAMBD_TRACE("lfs3_rambd_read(%p, "
-                "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
-            (void*)cfg, block, off, buffer, size);
     lfs3_rambd_t *bd = cfg->context;
 
     // check if read is valid
@@ -82,15 +57,11 @@ int lfs3_rambd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
     // read data
     memcpy(buffer, &bd->mem[block*cfg->block_size + off], size);
 
-    LFS3_RAMBD_TRACE("lfs3_rambd_read -> %d", 0);
     return 0;
 }
 
 int lfs3_rambd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, const void *buffer, lfs3_size_t size) {
-    LFS3_RAMBD_TRACE("lfs3_rambd_prog(%p, "
-                "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
-            (void*)cfg, block, off, buffer, size);
     lfs3_rambd_t *bd = cfg->context;
 
     // check if write is valid
@@ -102,14 +73,10 @@ int lfs3_rambd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
     // program data
     memcpy(&bd->mem[block*cfg->block_size + off], buffer, size);
 
-    LFS3_RAMBD_TRACE("lfs3_rambd_prog -> %d", 0);
     return 0;
 }
 
 int lfs3_rambd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
-    LFS3_RAMBD_TRACE("lfs3_rambd_erase(%p, 0x%"PRIx32" (%"PRIu32"))",
-            (void*)cfg, block, cfg->block_size);
-
     // check if erase is valid
     LFS3_ASSERT(block < cfg->block_count);
 
@@ -117,16 +84,12 @@ int lfs3_rambd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
     (void)cfg;
     (void)block;
 
-    LFS3_RAMBD_TRACE("lfs3_rambd_erase -> %d", 0);
     return 0;
 }
 
 int lfs3_rambd_sync(const struct lfs3_cfg *cfg) {
-    LFS3_RAMBD_TRACE("lfs3_rambd_sync(%p)", (void*)cfg);
-
     // sync is a noop
     (void)cfg;
 
-    LFS3_RAMBD_TRACE("lfs3_rambd_sync -> %d", 0);
     return 0;
 }

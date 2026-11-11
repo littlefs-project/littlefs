@@ -16,16 +16,6 @@
 #endif
 
 int lfs3_filebd_create(const struct lfs3_cfg *cfg, const char *path) {
-    LFS3_FILEBD_TRACE("lfs3_filebd_create(%p {.context=%p, "
-                ".read=%p, .prog=%p, .erase=%p, .sync=%p, "
-                ".read_size=%"PRIu32", .prog_size=%"PRIu32", "
-                ".block_size=%"PRIu32", .block_count=%"PRIu32"}, "
-                "\"%s\")",
-            (void*)cfg, cfg->context,
-            (void*)(uintptr_t)cfg->read, (void*)(uintptr_t)cfg->prog,
-            (void*)(uintptr_t)cfg->erase, (void*)(uintptr_t)cfg->sync,
-            cfg->read_size, cfg->prog_size, cfg->block_size, cfg->block_count,
-            path, (void*)bdcfg, bdcfg->erase_value);
     lfs3_filebd_t *bd = cfg->context;
 
     // open file
@@ -36,33 +26,25 @@ int lfs3_filebd_create(const struct lfs3_cfg *cfg, const char *path) {
     #endif
 
     if (bd->fd < 0) {
-        int err = -errno;
-        LFS3_FILEBD_TRACE("lfs3_filebd_create -> %d", err);
-        return err;
+        return -errno;
     }
 
-    LFS3_FILEBD_TRACE("lfs3_filebd_create -> %d", 0);
     return 0;
 }
 
 int lfs3_filebd_destroy(const struct lfs3_cfg *cfg) {
-    LFS3_FILEBD_TRACE("lfs3_filebd_destroy(%p)", (void*)cfg);
     lfs3_filebd_t *bd = cfg->context;
+
     int err = close(bd->fd);
     if (err < 0) {
-        err = -errno;
-        LFS3_FILEBD_TRACE("lfs3_filebd_destroy -> %d", err);
-        return err;
+        return -errno;
     }
-    LFS3_FILEBD_TRACE("lfs3_filebd_destroy -> %d", 0);
+
     return 0;
 }
 
 int lfs3_filebd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, void *buffer, lfs3_size_t size) {
-    LFS3_FILEBD_TRACE("lfs3_filebd_read(%p, "
-                "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
-            (void*)cfg, block, off, buffer, size);
     lfs3_filebd_t *bd = cfg->context;
 
     // check if read is valid
@@ -78,27 +60,19 @@ int lfs3_filebd_read(const struct lfs3_cfg *cfg, lfs3_block_t block,
     off_t res1 = lseek(bd->fd,
             (off_t)block*cfg->block_size + (off_t)off, SEEK_SET);
     if (res1 < 0) {
-        int err = -errno;
-        LFS3_FILEBD_TRACE("lfs3_filebd_read -> %d", err);
-        return err;
+        return -errno;
     }
 
     ssize_t res2 = read(bd->fd, buffer, size);
     if (res2 < 0) {
-        int err = -errno;
-        LFS3_FILEBD_TRACE("lfs3_filebd_read -> %d", err);
-        return err;
+        return -errno;
     }
 
-    LFS3_FILEBD_TRACE("lfs3_filebd_read -> %d", 0);
     return 0;
 }
 
 int lfs3_filebd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
         lfs3_off_t off, const void *buffer, lfs3_size_t size) {
-    LFS3_FILEBD_TRACE("lfs3_filebd_prog(%p, "
-                "0x%"PRIx32", %"PRIu32", %p, %"PRIu32")",
-            (void*)cfg, block, off, buffer, size);
     lfs3_filebd_t *bd = cfg->context;
 
     // check if write is valid
@@ -111,26 +85,18 @@ int lfs3_filebd_prog(const struct lfs3_cfg *cfg, lfs3_block_t block,
     off_t res1 = lseek(bd->fd,
             (off_t)block*cfg->block_size + (off_t)off, SEEK_SET);
     if (res1 < 0) {
-        int err = -errno;
-        LFS3_FILEBD_TRACE("lfs3_filebd_prog -> %d", err);
-        return err;
+        return -errno;
     }
 
     ssize_t res2 = write(bd->fd, buffer, size);
     if (res2 < 0) {
-        int err = -errno;
-        LFS3_FILEBD_TRACE("lfs3_filebd_prog -> %d", err);
-        return err;
+        return -errno;
     }
 
-    LFS3_FILEBD_TRACE("lfs3_filebd_prog -> %d", 0);
     return 0;
 }
 
 int lfs3_filebd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
-    LFS3_FILEBD_TRACE("lfs3_filebd_erase(%p, 0x%"PRIx32" (%"PRIu32"))",
-            (void*)cfg, block, cfg->block_size);
-
     // check if erase is valid
     LFS3_ASSERT(block < cfg->block_count);
 
@@ -138,26 +104,22 @@ int lfs3_filebd_erase(const struct lfs3_cfg *cfg, lfs3_block_t block) {
     (void)cfg;
     (void)block;
 
-    LFS3_FILEBD_TRACE("lfs3_filebd_erase -> %d", 0);
     return 0;
 }
 
 int lfs3_filebd_sync(const struct lfs3_cfg *cfg) {
-    LFS3_FILEBD_TRACE("lfs3_filebd_sync(%p)", (void*)cfg);
+    lfs3_filebd_t *bd = cfg->context;
 
     // file sync
-    lfs3_filebd_t *bd = cfg->context;
     #ifdef _WIN32
     int err = FlushFileBuffers((HANDLE) _get_osfhandle(bd->fd)) ? 0 : -1;
     #else
     int err = fsync(bd->fd);
     #endif
     if (err) {
-        err = -errno;
-        LFS3_FILEBD_TRACE("lfs3_filebd_sync -> %d", 0);
-        return err;
+        return -errno;
     }
 
-    LFS3_FILEBD_TRACE("lfs3_filebd_sync -> %d", 0);
     return 0;
 }
+
