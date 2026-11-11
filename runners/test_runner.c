@@ -444,6 +444,8 @@ test_flags_t test_mask = 0;
 
 const char *test_disk_path = NULL;
 const char *test_trace_path = NULL;
+bool test_trace_no_fs = false;
+bool test_trace_no_bd = false;
 bool test_trace_backtrace = false;
 size_t test_trace_step = 0;
 double test_trace_runfreq = 0;
@@ -475,9 +477,9 @@ void *test_trace_backtrace_buffer[
     TEST_TRACE_BACKTRACE_BUFFER_SIZE / sizeof(void*)];
 
 // trace printing
-void test_trace(const char *fmt, ...) {
-    if (!test_trace_path || test_trace_paused) {
-        goto done;
+static void test_vtrace_(const char *fmt, va_list va) {
+    if (test_trace_paused) {
+        return;
     }
 
     // prevent accidental recursion
@@ -487,7 +489,7 @@ void test_trace(const char *fmt, ...) {
     if (test_trace_step) {
         if (test_trace_steps % test_trace_step != 0) {
             test_trace_steps += 1;
-            goto done_;
+            goto done;
         }
         test_trace_steps += 1;
     }
@@ -501,7 +503,7 @@ void test_trace(const char *fmt, ...) {
         if (now - test_trace_runtime
                 < (test_ns_t)((1000.0*1000.0*1000.0)
                     / test_trace_runfreq)) {
-            goto done_;
+            goto done;
         }
         test_trace_runtime = now;
     }
@@ -515,7 +517,7 @@ void test_trace(const char *fmt, ...) {
         test_ns_t now = (test_ns_t)t.tv_sec*1000*1000*1000
                 + (test_ns_t)t.tv_nsec;
         if (now - test_trace_open_runtime < 100*1000*1000) {
-            goto done_;
+            goto done;
         }
         test_trace_open_runtime = now;
 
@@ -524,7 +526,7 @@ void test_trace(const char *fmt, ...) {
         if (strcmp(test_trace_path, "-") == 0) {
             fd = dup(1);
             if (fd < 0) {
-                goto done_;
+                goto done;
             }
         } else {
             fd = open(
@@ -532,7 +534,7 @@ void test_trace(const char *fmt, ...) {
                     O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK,
                     0666);
             if (fd < 0) {
-                goto done_;
+                goto done;
             }
             int err = fcntl(fd, F_SETFL, O_WRONLY | O_CREAT | O_APPEND);
             assert(!err);
@@ -547,14 +549,11 @@ void test_trace(const char *fmt, ...) {
     }
 
     // print trace
-    va_list va;
-    va_start(va, fmt);
     int res = vfprintf(test_trace_file, fmt, va);
-    va_end(va);
     if (res < 0) {
         fclose(test_trace_file);
         test_trace_file = NULL;
-        goto done_;
+        goto done;
     }
 
     if (test_trace_backtrace) {
@@ -569,7 +568,7 @@ void test_trace(const char *fmt, ...) {
             if (res < 0) {
                 fclose(test_trace_file);
                 test_trace_file = NULL;
-                goto done_;
+                goto done;
             }
         }
     }
@@ -577,10 +576,41 @@ void test_trace(const char *fmt, ...) {
     // flush immediately
     fflush(test_trace_file);
 
-done_:;
-    TEST_TRACE_RESUME();
-
 done:;
+    TEST_TRACE_RESUME();
+}
+
+void test_trace(const char *fmt, ...) {
+    if (!test_trace_path) {
+        return;
+    }
+
+    va_list va;
+    va_start(va, fmt);
+    test_vtrace_(fmt, va);
+    va_end(va);
+}
+
+void test_fstrace(const char *fmt, ...) {
+    if (!test_trace_path || test_trace_no_fs) {
+        return;
+    }
+
+    va_list va;
+    va_start(va, fmt);
+    test_vtrace_(fmt, va);
+    va_end(va);
+}
+
+void test_bdtrace(const char *fmt, ...) {
+    if (!test_trace_path || test_trace_no_bd) {
+        return;
+    }
+
+    va_list va;
+    va_start(va, fmt);
+    test_vtrace_(fmt, va);
+    va_end(va);
 }
 
 void test_trace_pause(void) {
@@ -2378,12 +2408,14 @@ enum opt_flags {
     OPT_NO_FUZZ                  = 14,
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 15,
-    OPT_TRACE_STEP               = 16,
-    OPT_TRACE_RUNFREQ            = 17,
-    OPT_READ_SLEEP               = 18,
-    OPT_PROG_SLEEP               = 19,
-    OPT_ERASE_SLEEP              = 20,
+    OPT_TRACE_NO_FS              = 15,
+    OPT_TRACE_NO_BD              = 16,
+    OPT_TRACE_BACKTRACE          = 17,
+    OPT_TRACE_STEP               = 18,
+    OPT_TRACE_RUNFREQ            = 19,
+    OPT_READ_SLEEP               = 20,
+    OPT_PROG_SLEEP               = 21,
+    OPT_ERASE_SLEEP              = 22,
 };
 
 const char *short_opts = "hYlLQ:D:P:d:t:";
@@ -2416,6 +2448,8 @@ const struct option long_opts[] = {
     {"no-fuzz",          no_argument,       NULL, OPT_NO_FUZZ},
     {"disk",             required_argument, NULL, OPT_DISK},
     {"trace",            required_argument, NULL, OPT_TRACE},
+    {"trace-no-fs",      no_argument,       NULL, OPT_TRACE_NO_FS},
+    {"trace-no-bd",      no_argument,       NULL, OPT_TRACE_NO_BD},
     {"trace-backtrace",  no_argument,       NULL, OPT_TRACE_BACKTRACE},
     {"trace-step",       required_argument, NULL, OPT_TRACE_STEP},
     {"trace-runfreq",    required_argument, NULL, OPT_TRACE_RUNFREQ},
@@ -2449,6 +2483,8 @@ const char *const help_text[] = {
     "Don't run fuzz tests.",
     "Direct block device operations to this file.",
     "Direct trace output to this file.",
+    "Don't trace fs operations",
+    "Don't trace bd operations",
     "Include a backtrace with every trace statement.",
     "Sample trace output every n steps.",
     "Sample trace output at this frequency in hz.",
@@ -2978,6 +3014,14 @@ int main(int argc, char **argv) {
 
         case OPT_TRACE:;
             test_trace_path = optarg;
+            break;
+
+        case OPT_TRACE_NO_FS:;
+            test_trace_no_fs = true;
+            break;
+
+        case OPT_TRACE_NO_BD:;
+            test_trace_no_bd = true;
             break;
 
         case OPT_TRACE_BACKTRACE:;

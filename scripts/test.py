@@ -860,6 +860,10 @@ def find_runner(runner, id=None, main=True, **args):
             cmd.append('-d%s' % args['disk'])
         if args.get('trace'):
             cmd.append('-t%s' % args['trace'])
+        if args.get('trace_no_fs'):
+            cmd.append('--trace-no-fs')
+        if args.get('trace_no_bd'):
+            cmd.append('--trace-no-bd')
         if args.get('trace_backtrace'):
             cmd.append('--trace-backtrace')
         if args.get('trace_step'):
@@ -1827,6 +1831,14 @@ if __name__ == "__main__":
     test_parser.add_argument(
             '-t', '--trace',
             help="Direct trace output to this file.")
+    test_parser.add_argument(
+            '--trace-no-fs',
+            action='store_true',
+            help="Don't trace fs operations")
+    test_parser.add_argument(
+            '--trace-no-bd',
+            action='store_true',
+            help="Don't trace bd operations")
     test_parser.add_argument(
             '--trace-backtrace',
             action='store_true',

@@ -17,15 +17,6 @@
 #include "lfs3_util.h"
 
 
-// Block device specific tracing
-#ifndef LFS3_EMUBD_TRACE
-#ifdef LFS3_EMUBD_YES_TRACE
-#define LFS3_EMUBD_TRACE(...) LFS3_TRACE(__VA_ARGS__)
-#else
-#define LFS3_EMUBD_TRACE(...)
-#endif
-#endif
-
 // Mode determining how "bad-blocks" behave during testing. This simulates
 // some real-world circumstances such as progs not sticking (PROGNOOP),
 // a readonly disk (ERASENOOP), ECC failures (PROGCORRUPT, READQUASIDAMAGED),

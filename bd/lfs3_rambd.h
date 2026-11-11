@@ -12,15 +12,6 @@
 #include "lfs3_util.h"
 
 
-// Block device specific tracing
-#ifndef LFS3_RAMBD_TRACE
-#ifdef LFS3_RAMBD_YES_TRACE
-#define LFS3_RAMBD_TRACE(...) LFS3_TRACE(__VA_ARGS__)
-#else
-#define LFS3_RAMBD_TRACE(...)
-#endif
-#endif
-
 // rambd config (optional)
 struct lfs3_rambd_cfg {
     // Optional statically allocated buffer for the block device.

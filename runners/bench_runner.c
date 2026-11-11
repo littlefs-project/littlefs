@@ -434,6 +434,8 @@ bench_flags_t bench_mask = 0;
 
 const char *bench_disk_path = NULL;
 const char *bench_trace_path = NULL;
+bool bench_trace_no_fs = false;
+bool bench_trace_no_bd = false;
 bool bench_trace_backtrace = false;
 size_t bench_trace_step = 0;
 double bench_trace_runfreq = 0.0;
@@ -457,12 +459,9 @@ void *bench_trace_backtrace_buffer[
     BENCH_TRACE_BACKTRACE_BUFFER_SIZE / sizeof(void*)];
 
 // trace printing
-void bench_trace(const char *fmt, ...) {
-    BENCH_STACK_PAUSE();
-    BENCH_HEAP_PAUSE();
-
-    if (!bench_trace_path || bench_trace_paused) {
-        goto done;
+static void bench_vtrace_(const char *fmt, va_list va) {
+    if (bench_trace_paused) {
+        return;
     }
 
     // prevent accidental recursion
@@ -472,7 +471,7 @@ void bench_trace(const char *fmt, ...) {
     if (bench_trace_step) {
         if (bench_trace_steps % bench_trace_step != 0) {
             bench_trace_steps += 1;
-            goto done_;
+            goto done;
         }
         bench_trace_steps += 1;
     }
@@ -486,7 +485,7 @@ void bench_trace(const char *fmt, ...) {
         if (now - bench_trace_runtime
                 < (bench_ns_t)((1000.0*1000.0*1000.0)
                     / bench_trace_runfreq)) {
-            goto done_;
+            goto done;
         }
         bench_trace_runtime = now;
     }
@@ -497,12 +496,12 @@ void bench_trace(const char *fmt, ...) {
         if (now < 0) {
             // I guess we shouldn't print anything until bench has
             // started
-            goto done_;
+            goto done;
         }
         if (now - bench_trace_simtime
                 < (bench_ns_t)((1000.0*1000.0*1000.0)
                     / bench_trace_simfreq)) {
-            goto done_;
+            goto done;
         }
         bench_trace_simtime = now;
     }
@@ -516,7 +515,7 @@ void bench_trace(const char *fmt, ...) {
         bench_ns_t now = (bench_ns_t)t.tv_sec*1000*1000*1000
                 + (bench_ns_t)t.tv_nsec;
         if (now - bench_trace_open_runtime < 100*1000*1000) {
-            goto done_;
+            goto done;
         }
         bench_trace_open_runtime = now;
 
@@ -525,7 +524,7 @@ void bench_trace(const char *fmt, ...) {
         if (strcmp(bench_trace_path, "-") == 0) {
             fd = dup(1);
             if (fd < 0) {
-                goto done_;
+                goto done;
             }
         } else {
             fd = open(
@@ -533,7 +532,7 @@ void bench_trace(const char *fmt, ...) {
                     O_WRONLY | O_CREAT | O_APPEND | O_NONBLOCK,
                     0666);
             if (fd < 0) {
-                goto done_;
+                goto done;
             }
             int err = fcntl(fd, F_SETFL, O_WRONLY | O_CREAT | O_APPEND);
             assert(!err);
@@ -548,14 +547,11 @@ void bench_trace(const char *fmt, ...) {
     }
 
     // print trace
-    va_list va;
-    va_start(va, fmt);
     int res = vfprintf(bench_trace_file, fmt, va);
-    va_end(va);
     if (res < 0) {
         fclose(bench_trace_file);
         bench_trace_file = NULL;
-        goto done_;
+        goto done;
     }
 
     if (bench_trace_backtrace) {
@@ -570,7 +566,7 @@ void bench_trace(const char *fmt, ...) {
             if (res < 0) {
                 fclose(bench_trace_file);
                 bench_trace_file = NULL;
-                goto done_;
+                goto done;
             }
         }
     }
@@ -578,8 +574,58 @@ void bench_trace(const char *fmt, ...) {
     // flush immediately
     fflush(bench_trace_file);
 
-done_:;
+done:;
     BENCH_TRACE_RESUME();
+}
+
+void bench_trace(const char *fmt, ...) {
+    BENCH_STACK_PAUSE();
+    BENCH_HEAP_PAUSE();
+
+    if (!bench_trace_path) {
+        goto done;
+    }
+
+    va_list va;
+    va_start(va, fmt);
+    bench_vtrace_(fmt, va);
+    va_end(va);
+
+done:;
+    BENCH_HEAP_RESUME();
+    BENCH_STACK_RESUME();
+}
+
+void bench_fstrace(const char *fmt, ...) {
+    BENCH_STACK_PAUSE();
+    BENCH_HEAP_PAUSE();
+
+    if (!bench_trace_path || bench_trace_no_fs) {
+        goto done;
+    }
+
+    va_list va;
+    va_start(va, fmt);
+    bench_vtrace_(fmt, va);
+    va_end(va);
+
+done:;
+    BENCH_HEAP_RESUME();
+    BENCH_STACK_RESUME();
+}
+
+void bench_bdtrace(const char *fmt, ...) {
+    BENCH_STACK_PAUSE();
+    BENCH_HEAP_PAUSE();
+
+    if (!bench_trace_path || bench_trace_no_bd) {
+        goto done;
+    }
+
+    va_list va;
+    va_start(va, fmt);
+    bench_vtrace_(fmt, va);
+    va_end(va);
 
 done:;
     BENCH_HEAP_RESUME();
@@ -4217,13 +4263,15 @@ enum opt_flags {
     OPT_NO_LITMUS                = 18,
     OPT_DISK                     = 'd',
     OPT_TRACE                    = 't',
-    OPT_TRACE_BACKTRACE          = 19,
-    OPT_TRACE_STEP               = 20,
-    OPT_TRACE_RUNFREQ            = 21,
-    OPT_TRACE_SIMFREQ            = 22,
-    OPT_READ_SLEEP               = 23,
-    OPT_PROG_SLEEP               = 24,
-    OPT_ERASE_SLEEP              = 25,
+    OPT_TRACE_NO_FS              = 19,
+    OPT_TRACE_NO_BD              = 20,
+    OPT_TRACE_BACKTRACE          = 21,
+    OPT_TRACE_STEP               = 22,
+    OPT_TRACE_RUNFREQ            = 23,
+    OPT_TRACE_SIMFREQ            = 24,
+    OPT_READ_SLEEP               = 25,
+    OPT_PROG_SLEEP               = 26,
+    OPT_ERASE_SLEEP              = 27,
 };
 
 const char *short_opts = "hYlLQ:D:S:x:X:d:t:";
@@ -4263,6 +4311,8 @@ const struct option long_opts[] = {
     {"no-litmus",        no_argument,       NULL, OPT_NO_LITMUS},
     {"disk",             required_argument, NULL, OPT_DISK},
     {"trace",            required_argument, NULL, OPT_TRACE},
+    {"trace-no-fs",      no_argument,       NULL, OPT_TRACE_NO_FS},
+    {"trace-no-bd",      no_argument,       NULL, OPT_TRACE_NO_BD},
     {"trace-backtrace",  no_argument,       NULL, OPT_TRACE_BACKTRACE},
     {"trace-step",       required_argument, NULL, OPT_TRACE_STEP},
     {"trace-runfreq",    required_argument, NULL, OPT_TRACE_RUNFREQ},
@@ -4303,6 +4353,8 @@ const char *const help_text[] = {
     "Don't run litmus benches.",
     "Direct block device operations to this file.",
     "Direct trace output to this file.",
+    "Don't trace fs operations",
+    "Don't trace bd operations",
     "Include a backtrace with every trace statement.",
     "Sample trace output every n steps.",
     "Sample trace output at this frequency in hz.",
@@ -5006,6 +5058,14 @@ int main(int argc, char **argv) {
 
         case OPT_TRACE:;
             bench_trace_path = optarg;
+            break;
+
+        case OPT_TRACE_NO_FS:;
+            bench_trace_no_fs = true;
+            break;
+
+        case OPT_TRACE_NO_BD:;
+            bench_trace_no_bd = true;
             break;
 
         case OPT_TRACE_BACKTRACE:;

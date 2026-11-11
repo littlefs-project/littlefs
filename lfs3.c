@@ -101,7 +101,10 @@ static int lfs3_bd_read___(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     LFS3_ASSERT(size % lfs3->cfg->read_size == 0);
 
     // bd read
+    LFS3_BDTRACE("lfs3_bd_read(%p, 0x%"PRIx32", 0x%"PRIx32", %p, %"PRIu32")",
+            (void*)lfs3, block, off, buffer, size);
     int err = lfs3->cfg->read(lfs3->cfg, block, off, buffer, size);
+    LFS3_BDTRACE("lfs3_bd_read -> %d", err);
     LFS3_ASSERT(err <= 0);
     if (err > 0) {
         LFS3_UNREACHABLE();
@@ -120,7 +123,10 @@ static int lfs3_bd_prog___(lfs3_t *lfs3, lfs3_block_t block, lfs3_size_t off,
     LFS3_ASSERT(size % lfs3->cfg->prog_size == 0);
 
     // bd prog
+    LFS3_BDTRACE("lfs3_bd_prog(%p, 0x%"PRIx32", 0x%"PRIx32", %p, %"PRIu32")",
+            (void*)lfs3, block, off, buffer, size);
     int err = lfs3->cfg->prog(lfs3->cfg, block, off, buffer, size);
+    LFS3_BDTRACE("lfs3_bd_prog -> %d", err);
     LFS3_ASSERT(err <= 0);
     if (err > 0) {
         LFS3_UNREACHABLE();
@@ -135,7 +141,10 @@ static int lfs3_bd_erase___(lfs3_t *lfs3, lfs3_block_t block) {
     LFS3_ASSERT(block < lfs3->block_count);
 
     // bd erase
+    LFS3_BDTRACE("lfs3_bd_erase(%p, 0x%"PRIx32" (%"PRIu32"))",
+            (void*)lfs3, block, lfs3->cfg->block_size);
     int err = lfs3->cfg->erase(lfs3->cfg, block);
+    LFS3_BDTRACE("lfs3_bd_erase -> %d", err);
     LFS3_ASSERT(err <= 0);
     if (err > 0) {
         LFS3_UNREACHABLE();
@@ -147,7 +156,10 @@ static int lfs3_bd_erase___(lfs3_t *lfs3, lfs3_block_t block) {
 #ifndef LFS3_RDONLY
 static int lfs3_bd_sync___(lfs3_t *lfs3) {
     // bd sync
+    LFS3_BDTRACE("lfs3_bd_sync(%p)",
+            (void*)lfs3);
     int err = lfs3->cfg->sync(lfs3->cfg);
+    LFS3_BDTRACE("lfs3_bd_sync -> %d", err);
     LFS3_ASSERT(err <= 0);
     if (err > 0) {
         LFS3_UNREACHABLE();
@@ -12323,12 +12335,10 @@ static int lfs3_fs_mkconsistent_(lfs3_t *lfs3) {
 #ifndef LFS3_RDONLY
 int lfs3_fs_mkconsistent(lfs3_t *lfs3) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_fs_mkconsistent(%p)",
+    LFS3_FSTRACE("lfs3_fs_mkconsistent(%p)",
             (void*)lfs3);
-
     int err = lfs3_fs_mkconsistent_(lfs3);
-
-    LFS3_TRACE("lfs3_fs_mkconsistent -> %d", err);
+    LFS3_FSTRACE("lfs3_fs_mkconsistent -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -13839,12 +13849,10 @@ static int lfs3_mkdir_(lfs3_t *lfs3, const char *path) {
 #ifndef LFS3_RDONLY
 int lfs3_mkdir(lfs3_t *lfs3, const char *path) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_mkdir(%p, \"%s\")",
+    LFS3_FSTRACE("lfs3_mkdir(%p, \"%s\")",
             (void*)lfs3, path);
-
     int err = lfs3_mkdir_(lfs3, path);
-
-    LFS3_TRACE("lfs3_mkdir -> %d", err);
+    LFS3_FSTRACE("lfs3_mkdir -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -14043,12 +14051,10 @@ failed:;
 #ifndef LFS3_RDONLY
 int lfs3_remove(lfs3_t *lfs3, const char *path) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_remove(%p, \"%s\")",
+    LFS3_FSTRACE("lfs3_remove(%p, \"%s\")",
             (void*)lfs3, path);
-
     int err = lfs3_remove_(lfs3, path);
-
-    LFS3_TRACE("lfs3_remove -> %d", err);
+    LFS3_FSTRACE("lfs3_remove -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -14264,12 +14270,10 @@ failed:;
 #ifndef LFS3_RDONLY
 int lfs3_rename(lfs3_t *lfs3, const char *old_path, const char *new_path) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_rename(%p, \"%s\", \"%s\")",
+    LFS3_FSTRACE("lfs3_rename(%p, \"%s\", \"%s\")",
             (void*)lfs3, old_path, new_path);
-
     int err = lfs3_rename_(lfs3, old_path, new_path);
-
-    LFS3_TRACE("lfs3_rename -> %d", err);
+    LFS3_FSTRACE("lfs3_rename -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -14346,12 +14350,10 @@ static int lfs3_stat_(lfs3_t *lfs3, const char *path,
 
 int lfs3_stat(lfs3_t *lfs3, const char *path, struct lfs3_info *info) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_stat(%p, \"%s\", %p)",
+    LFS3_FSTRACE("lfs3_stat(%p, \"%s\", %p)",
             (void*)lfs3, path, (void*)info);
-
     int err = lfs3_stat_(lfs3, path, info);
-
-    LFS3_TRACE("lfs3_stat -> %d", err);
+    LFS3_FSTRACE("lfs3_stat -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -14415,12 +14417,10 @@ static int lfs3_dir_open_(lfs3_t *lfs3, lfs3_dir_t *dir,
 
 int lfs3_dir_open(lfs3_t *lfs3, lfs3_dir_t *dir, const char *path) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_dir_open(%p, %p, \"%s\")",
+    LFS3_FSTRACE("lfs3_dir_open(%p, %p, \"%s\")",
             (void*)lfs3, (void*)dir, path);
-
     int err = lfs3_dir_open_(lfs3, dir, path);
-
-    LFS3_TRACE("lfs3_dir_open -> %d", err);
+    LFS3_FSTRACE("lfs3_dir_open -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -14435,12 +14435,10 @@ static int lfs3_dir_close_(lfs3_t *lfs3, lfs3_dir_t *dir) {
 
 int lfs3_dir_close(lfs3_t *lfs3, lfs3_dir_t *dir) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_dir_close(%p, %p)",
+    LFS3_FSTRACE("lfs3_dir_close(%p, %p)",
             (void*)lfs3, (void*)dir);
-
     int err = lfs3_dir_close_(lfs3, dir);
-
-    LFS3_TRACE("lfs3_dir_close -> %d", err);
+    LFS3_FSTRACE("lfs3_dir_close -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -14525,12 +14523,10 @@ static int lfs3_dir_read_(lfs3_t *lfs3, lfs3_dir_t *dir,
 int lfs3_dir_read(lfs3_t *lfs3, lfs3_dir_t *dir,
         struct lfs3_info *info) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_dir_read(%p, %p, %p)",
+    LFS3_FSTRACE("lfs3_dir_read(%p, %p, %p)",
             (void*)lfs3, (void*)dir, (void*)info);
-
     int err = lfs3_dir_read_(lfs3, dir, info);
-
-    LFS3_TRACE("lfs3_dir_read -> %d", err);
+    LFS3_FSTRACE("lfs3_dir_read -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -14583,12 +14579,10 @@ static int lfs3_dir_seek_(lfs3_t *lfs3, lfs3_dir_t *dir,
 
 int lfs3_dir_seek(lfs3_t *lfs3, lfs3_dir_t *dir, lfs3_soff_t off) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_dir_seek(%p, %p, %"PRId32")",
+    LFS3_FSTRACE("lfs3_dir_seek(%p, %p, %"PRId32")",
             (void*)lfs3, (void*)dir, off);
-
     int err = lfs3_dir_seek_(lfs3, dir, off);
-
-    LFS3_TRACE("lfs3_dir_seek -> %d", err);
+    LFS3_FSTRACE("lfs3_dir_seek -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -14602,12 +14596,10 @@ static lfs3_soff_t lfs3_dir_tell_(lfs3_t *lfs3, lfs3_dir_t *dir) {
 
 lfs3_soff_t lfs3_dir_tell(lfs3_t *lfs3, lfs3_dir_t *dir) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_dir_tell(%p, %p)",
+    LFS3_FSTRACE("lfs3_dir_tell(%p, %p)",
             (void*)lfs3, (void*)dir);
-
     lfs3_soff_t off = lfs3_dir_tell_(lfs3, dir);
-
-    LFS3_TRACE("lfs3_dir_tell -> %"PRId32, off);
+    LFS3_FSTRACE("lfs3_dir_tell -> %"PRId32, off);
     LFS3_UNLOCK(lfs3->cfg);
     return off;
 }
@@ -14641,12 +14633,10 @@ static int lfs3_dir_rewind_(lfs3_t *lfs3, lfs3_dir_t *dir) {
 
 int lfs3_dir_rewind(lfs3_t *lfs3, lfs3_dir_t *dir) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_dir_rewind(%p, %p)",
+    LFS3_FSTRACE("lfs3_dir_rewind(%p, %p)",
             (void*)lfs3, (void*)dir);
-
     int err = lfs3_dir_rewind_(lfs3, dir);
-
-    LFS3_TRACE("lfs3_dir_rewind -> %d", err);
+    LFS3_FSTRACE("lfs3_dir_rewind -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -14701,12 +14691,10 @@ static lfs3_ssize_t lfs3_getattr_(lfs3_t *lfs3,
 lfs3_ssize_t lfs3_getattr(lfs3_t *lfs3, const char *path, uint8_t type,
         void *buffer, lfs3_size_t size) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_getattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
+    LFS3_FSTRACE("lfs3_getattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
             (void*)lfs3, path, type, buffer, size);
-
     lfs3_ssize_t size_ = lfs3_getattr_(lfs3, path, type, buffer, size);
-
-    LFS3_TRACE("lfs3_getattr -> %"PRId32, size_);
+    LFS3_FSTRACE("lfs3_getattr -> %"PRId32, size_);
     LFS3_UNLOCK(lfs3->cfg);
     return size_;
 }
@@ -14728,12 +14716,10 @@ static lfs3_ssize_t lfs3_sizeattr_(lfs3_t *lfs3,
 
 lfs3_ssize_t lfs3_sizeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_sizeattr(%p, \"%s\", %"PRIu8")",
+    LFS3_FSTRACE("lfs3_sizeattr(%p, \"%s\", %"PRIu8")",
             (void*)lfs3, path, type);
-
     lfs3_ssize_t size_ = lfs3_sizeattr_(lfs3, path, type);
-
-    LFS3_TRACE("lfs3_sizeattr -> %"PRId32, size_);
+    LFS3_FSTRACE("lfs3_sizeattr -> %"PRId32, size_);
     LFS3_UNLOCK(lfs3->cfg);
     return size_;
 }
@@ -14827,12 +14813,10 @@ static int lfs3_setattr_(lfs3_t *lfs3, const char *path, uint8_t type,
 int lfs3_setattr(lfs3_t *lfs3, const char *path, uint8_t type,
         const void *buffer, lfs3_size_t size) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_setattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
+    LFS3_FSTRACE("lfs3_setattr(%p, \"%s\", %"PRIu8", %p, %"PRIu32")",
             (void*)lfs3, path, type, buffer, size);
-
     int err = lfs3_setattr_(lfs3, path, type, buffer, size);
-
-    LFS3_TRACE("lfs3_setattr -> %d", err);
+    LFS3_FSTRACE("lfs3_setattr -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -14912,12 +14896,10 @@ static int lfs3_removeattr_(lfs3_t *lfs3,
 #ifndef LFS3_RDONLY
 int lfs3_removeattr(lfs3_t *lfs3, const char *path, uint8_t type) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_removeattr(%p, \"%s\", %"PRIu8")",
+    LFS3_FSTRACE("lfs3_removeattr(%p, \"%s\", %"PRIu8")",
             (void*)lfs3, path, type);
-
     int err = lfs3_removeattr_(lfs3, path, type);
-
-    LFS3_TRACE("lfs3_removeattr -> %d", err);
+    LFS3_FSTRACE("lfs3_removeattr -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -15384,7 +15366,7 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags,
         const struct lfs3_file_cfg *cfg) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_opencfg("
+    LFS3_FSTRACE("lfs3_file_opencfg("
                 "%p, "
                 "%p, "
                 "\"%s\", "
@@ -15407,10 +15389,8 @@ int lfs3_file_opencfg(lfs3_t *lfs3, lfs3_file_t *file,
                 cfg->attr_count,
                 LFS3_IFDEF_RDONLY(0, cfg->grain_size),
                 LFS3_IFDEF_RDONLY(0, cfg->crystal_thresh));
-
     int err = lfs3_file_opencfg_(lfs3, file, path, flags, cfg);
-
-    LFS3_TRACE("lfs3_file_opencfg -> %d", err);
+    LFS3_FSTRACE("lfs3_file_opencfg -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -15428,12 +15408,10 @@ static int lfs3_file_open_(lfs3_t *lfs3, lfs3_file_t *file,
 int lfs3_file_open(lfs3_t *lfs3, lfs3_file_t *file,
         const char *path, uint32_t flags) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_open(%p, %p, \"%s\", 0x%"PRIx32")",
+    LFS3_FSTRACE("lfs3_file_open(%p, %p, \"%s\", 0x%"PRIx32")",
             (void*)lfs3, (void*)file, path, flags);
-
     int err = lfs3_file_open_(lfs3, file, path, flags);
-
-    LFS3_TRACE("lfs3_file_open -> %d", err);
+    LFS3_FSTRACE("lfs3_file_open -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -15510,12 +15488,10 @@ static int lfs3_file_close_(lfs3_t *lfs3, lfs3_file_t *file) {
 
 int lfs3_file_close(lfs3_t *lfs3, lfs3_file_t *file) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_close(%p, %p)",
+    LFS3_FSTRACE("lfs3_file_close(%p, %p)",
             (void*)lfs3, (void*)file);
-
     int err = lfs3_file_close_(lfs3, file);
-
-    LFS3_TRACE("lfs3_file_close -> %d", err);
+    LFS3_FSTRACE("lfs3_file_close -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -15768,12 +15744,10 @@ static lfs3_ssize_t lfs3_file_read_(lfs3_t *lfs3, lfs3_file_t *file,
 lfs3_ssize_t lfs3_file_read(lfs3_t *lfs3, lfs3_file_t *file,
         void *buffer, lfs3_size_t size) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_read(%p, %p, %p, %"PRIu32")",
+    LFS3_FSTRACE("lfs3_file_read(%p, %p, %p, %"PRIu32")",
             (void*)lfs3, (void*)file, buffer, size);
-
     lfs3_ssize_t d = lfs3_file_read_(lfs3, file, buffer, size);
-
-    LFS3_TRACE("lfs3_file_read -> %"PRId32, d);
+    LFS3_FSTRACE("lfs3_file_read -> %"PRId32, d);
     LFS3_UNLOCK(lfs3->cfg);
     return d;
 }
@@ -16899,12 +16873,10 @@ failed:;
 lfs3_ssize_t lfs3_file_write(lfs3_t *lfs3, lfs3_file_t *file,
         const void *buffer, lfs3_size_t size) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_write(%p, %p, %p, %"PRIu32")",
+    LFS3_FSTRACE("lfs3_file_write(%p, %p, %p, %"PRIu32")",
             (void*)lfs3, (void*)file, buffer, size);
-
     lfs3_ssize_t d = lfs3_file_write_(lfs3, file, buffer, size);
-
-    LFS3_TRACE("lfs3_file_write -> %"PRId32, d);
+    LFS3_FSTRACE("lfs3_file_write -> %"PRId32, d);
     LFS3_UNLOCK(lfs3->cfg);
     return d;
 }
@@ -16969,12 +16941,10 @@ failed:;
 
 int lfs3_file_flush(lfs3_t *lfs3, lfs3_file_t *file) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_flush(%p, %p)",
+    LFS3_FSTRACE("lfs3_file_flush(%p, %p)",
             (void*)lfs3, (void*)file);
-
     int err = lfs3_file_flush_(lfs3, file);
-
-    LFS3_TRACE("lfs3_file_flush -> %d", err);
+    LFS3_FSTRACE("lfs3_file_flush -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -17310,12 +17280,10 @@ failed:;
 
 int lfs3_file_sync(lfs3_t *lfs3, lfs3_file_t *file) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_sync(%p, %p)",
+    LFS3_FSTRACE("lfs3_file_sync(%p, %p)",
             (void*)lfs3, (void*)file);
-
     int err = lfs3_file_sync_(lfs3, file);
-
-    LFS3_TRACE("lfs3_file_sync -> %d", err);
+    LFS3_FSTRACE("lfs3_file_sync -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -17334,12 +17302,10 @@ static int lfs3_file_desync_(lfs3_t *lfs3, lfs3_file_t *file) {
 
 int lfs3_file_desync(lfs3_t *lfs3, lfs3_file_t *file) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_desync(%p, %p)",
+    LFS3_FSTRACE("lfs3_file_desync(%p, %p)",
             (void*)lfs3, (void*)file);
-
     int err = lfs3_file_desync_(lfs3, file);
-
-    LFS3_TRACE("lfs3_file_desync -> %d", err);
+    LFS3_FSTRACE("lfs3_file_desync -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -17387,12 +17353,10 @@ failed:;
 
 int lfs3_file_resync(lfs3_t *lfs3, lfs3_file_t *file) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_resync(%p, %p)",
+    LFS3_FSTRACE("lfs3_file_resync(%p, %p)",
             (void*)lfs3, (void*)file);
-
     int err = lfs3_file_resync_(lfs3, file);
-
-    LFS3_TRACE("lfs3_file_resync -> %d", err);
+    LFS3_FSTRACE("lfs3_file_resync -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -17430,12 +17394,10 @@ static lfs3_soff_t lfs3_file_seek_(lfs3_t *lfs3, lfs3_file_t *file,
 lfs3_soff_t lfs3_file_seek(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_soff_t off, uint32_t whence) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_seek(%p, %p, %"PRId32", 0x%"PRIx32")",
+    LFS3_FSTRACE("lfs3_file_seek(%p, %p, %"PRId32", 0x%"PRIx32")",
             (void*)lfs3, (void*)file, off, whence);
-
     lfs3_soff_t off_ = lfs3_file_seek_(lfs3, file, off, whence);
-
-    LFS3_TRACE("lfs3_file_seek -> %"PRId32, off_);
+    LFS3_FSTRACE("lfs3_file_seek -> %"PRId32, off_);
     LFS3_UNLOCK(lfs3->cfg);
     return off_;
 }
@@ -17449,12 +17411,10 @@ static lfs3_soff_t lfs3_file_tell_(lfs3_t *lfs3, lfs3_file_t *file) {
 
 lfs3_soff_t lfs3_file_tell(lfs3_t *lfs3, lfs3_file_t *file) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_tell(%p, %p)",
+    LFS3_FSTRACE("lfs3_file_tell(%p, %p)",
             (void*)lfs3, (void*)file);
-
     lfs3_soff_t off = lfs3_file_tell_(lfs3, file);
-
-    LFS3_TRACE("lfs3_file_tell -> %"PRId32, off);
+    LFS3_FSTRACE("lfs3_file_tell -> %"PRId32, off);
     LFS3_UNLOCK(lfs3->cfg);
     return off;
 }
@@ -17469,12 +17429,10 @@ static int lfs3_file_rewind_(lfs3_t *lfs3, lfs3_file_t *file) {
 
 int lfs3_file_rewind(lfs3_t *lfs3, lfs3_file_t *file) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_rewind(%p, %p)",
+    LFS3_FSTRACE("lfs3_file_rewind(%p, %p)",
             (void*)lfs3, (void*)file);
-
     int err = lfs3_file_rewind_(lfs3, file);
-
-    LFS3_TRACE("lfs3_file_rewind -> %d", err);
+    LFS3_FSTRACE("lfs3_file_rewind -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -17488,12 +17446,10 @@ static lfs3_soff_t lfs3_file_size_(lfs3_t *lfs3, lfs3_file_t *file) {
 
 lfs3_soff_t lfs3_file_size(lfs3_t *lfs3, lfs3_file_t *file) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_size(%p, %p)",
+    LFS3_FSTRACE("lfs3_file_size(%p, %p)",
             (void*)lfs3, (void*)file);
-
     lfs3_soff_t size = lfs3_file_size_(lfs3, file);
-
-    LFS3_TRACE("lfs3_file_size -> %"PRId32, size);
+    LFS3_FSTRACE("lfs3_file_size -> %"PRId32, size);
     LFS3_UNLOCK(lfs3->cfg);
     return size;
 }
@@ -17589,12 +17545,10 @@ failed:;
 int lfs3_file_truncate(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t size_) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_truncate(%p, %p, %"PRIu32")",
+    LFS3_FSTRACE("lfs3_file_truncate(%p, %p, %"PRIu32")",
             (void*)lfs3, (void*)file, size_);
-
     int err = lfs3_file_truncate_(lfs3, file, size_);
-
-    LFS3_TRACE("lfs3_file_truncate -> %d", err);
+    LFS3_FSTRACE("lfs3_file_truncate -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -17717,12 +17671,10 @@ failed:;
 int lfs3_file_fruncate(lfs3_t *lfs3, lfs3_file_t *file,
         lfs3_off_t size_) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_fruncate(%p, %p, %"PRIu32")",
+    LFS3_FSTRACE("lfs3_file_fruncate(%p, %p, %"PRIu32")",
             (void*)lfs3, (void*)file, size_);
-
     int err = lfs3_file_fruncate_(lfs3, file, size_);
-
-    LFS3_TRACE("lfs3_file_fruncate -> %d", err);
+    LFS3_FSTRACE("lfs3_file_fruncate -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -17878,12 +17830,10 @@ damaged:;
 
 int lfs3_file_ck(lfs3_t *lfs3, lfs3_file_t *file, uint32_t flags) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_file_ck(%p, %p, 0x%"PRIx32")",
+    LFS3_FSTRACE("lfs3_file_ck(%p, %p, 0x%"PRIx32")",
             (void*)lfs3, (void*)file, flags);
-
     int err = lfs3_file_ck_(lfs3, file, flags);
-
-    LFS3_TRACE("lfs3_file_ck -> %d", err);
+    LFS3_FSTRACE("lfs3_file_ck -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -17927,12 +17877,10 @@ static lfs3_ssize_t lfs3_get_(lfs3_t *lfs3, const char *path,
 lfs3_ssize_t lfs3_get(lfs3_t *lfs3, const char *path,
         void *buffer, lfs3_size_t size) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_get(%p, \"%s\", %p, %"PRIu32")",
+    LFS3_FSTRACE("lfs3_get(%p, \"%s\", %p, %"PRIu32")",
             (void*)lfs3, path, buffer, size);
-
     lfs3_ssize_t d = lfs3_get_(lfs3, path, buffer, size);
-
-    LFS3_TRACE("lfs3_get -> %"PRId32, d);
+    LFS3_FSTRACE("lfs3_get -> %"PRId32, d);
     LFS3_UNLOCK(lfs3->cfg);
     return d;
 }
@@ -17959,12 +17907,10 @@ static lfs3_ssize_t lfs3_size_(lfs3_t *lfs3, const char *path) {
 
 lfs3_ssize_t lfs3_size(lfs3_t *lfs3, const char *path) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_size(%p, \"%s\")",
+    LFS3_FSTRACE("lfs3_size(%p, \"%s\")",
             (void*)lfs3, path);
-
     lfs3_ssize_t d = lfs3_size_(lfs3, path);
-
-    LFS3_TRACE("lfs3_size -> %"PRId32, d);
+    LFS3_FSTRACE("lfs3_size -> %"PRId32, d);
     LFS3_UNLOCK(lfs3->cfg);
     return d;
 }
@@ -18003,12 +17949,10 @@ static int lfs3_set_(lfs3_t *lfs3, const char *path,
 int lfs3_set(lfs3_t *lfs3, const char *path,
         const void *buffer, lfs3_size_t size) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_set(%p, \"%s\", %p, %"PRIu32")",
+    LFS3_FSTRACE("lfs3_set(%p, \"%s\", %p, %"PRIu32")",
             (void*)lfs3, path, buffer, size);
-
     int err = lfs3_set_(lfs3, path, buffer, size);
-
-    LFS3_TRACE("lfs3_set -> %d", err);
+    LFS3_FSTRACE("lfs3_set -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -19184,7 +19128,7 @@ failed:;
 int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
         const struct lfs3_cfg *cfg) {
     LFS3_LOCK(cfg);
-    LFS3_TRACE("lfs3_mount("
+    LFS3_FSTRACE("lfs3_mount("
                 "%p, "
                 "0x%"PRIx32", "
                 "%p {"
@@ -19270,10 +19214,8 @@ int lfs3_mount(lfs3_t *lfs3, uint32_t flags,
                 LFS3_IFDEF_RDONLY(0, cfg->shrub_size),
                 LFS3_IFDEF_RDONLY(0, cfg->grain_size),
                 LFS3_IFDEF_RDONLY(0, cfg->crystal_thresh));
-
     int err = lfs3_mount_(lfs3, flags, cfg);
-
-    LFS3_TRACE("lfs3_mount -> %d", err);
+    LFS3_FSTRACE("lfs3_mount -> %d", err);
     LFS3_UNLOCK(cfg);
     return err;
 }
@@ -19292,12 +19234,10 @@ static int lfs3_unmount_(lfs3_t *lfs3) {
 
 int lfs3_unmount(lfs3_t *lfs3) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_unmount(%p)",
+    LFS3_FSTRACE("lfs3_unmount(%p)",
             (void*)lfs3);
-
     int err = lfs3_unmount_(lfs3);
-
-    LFS3_TRACE("lfs3_unmount -> %d", err);
+    LFS3_FSTRACE("lfs3_unmount -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -19577,7 +19517,7 @@ failed:;
 int lfs3_format(lfs3_t *lfs3, uint32_t flags,
         const struct lfs3_cfg *cfg) {
     LFS3_LOCK(cfg);
-    LFS3_TRACE("lfs3_format("
+    LFS3_FSTRACE("lfs3_format("
                 "%p, "
                 "0x%"PRIx32", "
                 "%p {"
@@ -19663,10 +19603,8 @@ int lfs3_format(lfs3_t *lfs3, uint32_t flags,
                 LFS3_IFDEF_RDONLY(0, cfg->shrub_size),
                 LFS3_IFDEF_RDONLY(0, cfg->grain_size),
                 LFS3_IFDEF_RDONLY(0, cfg->crystal_thresh));
-
     int err = lfs3_format_(lfs3, flags, cfg);
-
-    LFS3_TRACE("lfs3_format -> %d", err);
+    LFS3_FSTRACE("lfs3_format -> %d", err);
     LFS3_UNLOCK(cfg);
     return err;
 }
@@ -19738,12 +19676,10 @@ static int lfs3_fs_stat_(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
 
 int lfs3_fs_stat(lfs3_t *lfs3, struct lfs3_fsinfo *fsinfo) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_fs_stat(%p, %p)",
+    LFS3_FSTRACE("lfs3_fs_stat(%p, %p)",
             (void*)lfs3, (void*)fsinfo);
-
     int err = lfs3_fs_stat_(lfs3, fsinfo);
-
-    LFS3_TRACE("lfs3_fs_stat -> %d", err);
+    LFS3_FSTRACE("lfs3_fs_stat -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -19791,12 +19727,10 @@ static lfs3_sblock_t lfs3_fs_size_(lfs3_t *lfs3) {
 
 lfs3_sblock_t lfs3_fs_size(lfs3_t *lfs3) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_fs_size(%p)",
+    LFS3_FSTRACE("lfs3_fs_size(%p)",
             (void*)lfs3);
-
     lfs3_ssize_t size = lfs3_fs_size_(lfs3);
-
-    LFS3_TRACE("lfs3_fs_size -> %"PRId32, size);
+    LFS3_FSTRACE("lfs3_fs_size -> %"PRId32, size);
     LFS3_UNLOCK(lfs3->cfg);
     return size;
 }
@@ -19809,12 +19743,10 @@ static int lfs3_fs_cksum_(lfs3_t *lfs3, uint32_t *cksum) {
 
 int lfs3_fs_cksum(lfs3_t *lfs3, uint32_t *cksum) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_fs_cksum(%p, %p)",
+    LFS3_FSTRACE("lfs3_fs_cksum(%p, %p)",
             (void*)lfs3, (void*)cksum);
-
     int err = lfs3_fs_cksum_(lfs3, cksum);
-
-    LFS3_TRACE("lfs3_fs_cksum -> %d", err);
+    LFS3_FSTRACE("lfs3_fs_cksum -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -19899,12 +19831,10 @@ damaged:;
 
 int lfs3_fs_ck(lfs3_t *lfs3, uint32_t flags) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_fs_ck(%p, 0x%"PRIx32")",
+    LFS3_FSTRACE("lfs3_fs_ck(%p, 0x%"PRIx32")",
             (void*)lfs3, flags);
-
     int err = lfs3_fs_ck_(lfs3, flags);
-
-    LFS3_TRACE("lfs3_fs_ck -> %d", err);
+    LFS3_FSTRACE("lfs3_fs_ck -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -20007,12 +19937,10 @@ static lfs3_sblock_t lfs3_fs_gc_(lfs3_t *lfs3) {
 #ifdef LFS3_GC
 lfs3_sblock_t lfs3_fs_gc(lfs3_t *lfs3) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_fs_gc(%p)",
+    LFS3_FSTRACE("lfs3_fs_gc(%p)",
             (void*)lfs3);
-
     lfs3_ssize_t steps = lfs3_fs_gc_(lfs3);
-
-    LFS3_TRACE("lfs3_fs_gc -> %"PRId32, steps);
+    LFS3_FSTRACE("lfs3_fs_gc -> %"PRId32, steps);
     LFS3_UNLOCK(lfs3->cfg);
     return steps;
 }
@@ -20044,12 +19972,10 @@ static int lfs3_fs_requestck_(lfs3_t *lfs3, uint32_t flags) {
 
 int lfs3_fs_requestck(lfs3_t *lfs3, uint32_t flags) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_fs_requestck(%p, 0x%"PRIx32")",
+    LFS3_FSTRACE("lfs3_fs_requestck(%p, 0x%"PRIx32")",
             (void*)lfs3, flags);
-
     int err = lfs3_fs_requestck_(lfs3, flags);
-
-    LFS3_TRACE("lfs3_fs_requestck -> %d", err);
+    LFS3_FSTRACE("lfs3_fs_requestck -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -20094,12 +20020,10 @@ static int lfs3_fs_clearck_(lfs3_t *lfs3, uint32_t flags) {
 
 int lfs3_fs_clearck(lfs3_t *lfs3, uint32_t flags) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_fs_clearck(%p, 0x%"PRIx32")",
+    LFS3_FSTRACE("lfs3_fs_clearck(%p, 0x%"PRIx32")",
             (void*)lfs3, flags);
-
     int err = lfs3_fs_clearck_(lfs3, flags);
-
-    LFS3_TRACE("lfs3_fs_clearck -> %d", err);
+    LFS3_FSTRACE("lfs3_fs_clearck -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -20339,12 +20263,10 @@ failed:;
 int lfs3_fs_grow(lfs3_t *lfs3, lfs3_block_t block_count_,
         uint32_t flags) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_fs_grow(%p, %"PRIu32", 0x%"PRIx32")",
+    LFS3_FSTRACE("lfs3_fs_grow(%p, %"PRIu32", 0x%"PRIx32")",
             (void*)lfs3, block_count_, flags);
-
     int err = lfs3_fs_grow_(lfs3, block_count_, flags);
-
-    LFS3_TRACE("lfs3_fs_grow -> %d", err);
+    LFS3_FSTRACE("lfs3_fs_grow -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -20422,12 +20344,10 @@ failed:;
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 int lfs3_fs_mkgbmap(lfs3_t *lfs3) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_fs_mkgbmap(%p)",
+    LFS3_FSTRACE("lfs3_fs_mkgbmap(%p)",
             (void*)lfs3);
-
     int err = lfs3_fs_mkgbmap_(lfs3);
-
-    LFS3_TRACE("lfs3_fs_mkgbmap -> %d", err);
+    LFS3_FSTRACE("lfs3_fs_mkgbmap -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -20481,12 +20401,10 @@ static int lfs3_fs_rmgbmap_(lfs3_t *lfs3) {
 #if !defined(LFS3_RDONLY) && defined(LFS3_GBMAP)
 int lfs3_fs_rmgbmap(lfs3_t *lfs3) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_fs_rmgbmap(%p)",
+    LFS3_FSTRACE("lfs3_fs_rmgbmap(%p)",
             (void*)lfs3);
-
     int err = lfs3_fs_rmgbmap_(lfs3);
-
-    LFS3_TRACE("lfs3_fs_rmgbmap -> %d", err);
+    LFS3_FSTRACE("lfs3_fs_rmgbmap -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -20624,12 +20542,10 @@ failed:;
 int lfs3_fs_evictblock(lfs3_t *lfs3, lfs3_block_t block,
         uint32_t flags) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_fs_evictblock(%p, 0x%"PRIx32", 0x%"PRIx32")",
+    LFS3_FSTRACE("lfs3_fs_evictblock(%p, 0x%"PRIx32", 0x%"PRIx32")",
             (void*)lfs3, block, flags);
-
     int err = lfs3_fs_evictblock_(lfs3, block, flags);
-
-    LFS3_TRACE("lfs3_fs_evictblock -> %d", err);
+    LFS3_FSTRACE("lfs3_fs_evictblock -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -20699,12 +20615,10 @@ static int lfs3_fs_statblock_(lfs3_t *lfs3, lfs3_block_t block,
 int lfs3_fs_statblock(lfs3_t *lfs3, lfs3_block_t block,
         struct lfs3_binfo *binfo) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_fs_statblock(%p, 0x%"PRIx32", %p)",
+    LFS3_FSTRACE("lfs3_fs_statblock(%p, 0x%"PRIx32", %p)",
             (void*)lfs3, block, (void*)binfo);
-
     int err = lfs3_fs_statblock_(lfs3, block, binfo);
-
-    LFS3_TRACE("lfs3_fs_statblock -> %d", err);
+    LFS3_FSTRACE("lfs3_fs_statblock -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -20736,12 +20650,10 @@ static int lfs3_trv_open_(lfs3_t *lfs3, lfs3_trv_t *trv,
 
 int lfs3_trv_open(lfs3_t *lfs3, lfs3_trv_t *trv, uint32_t flags) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_trv_open(%p, %p, 0x%"PRIx32")",
+    LFS3_FSTRACE("lfs3_trv_open(%p, %p, 0x%"PRIx32")",
             (void*)lfs3, (void*)trv, flags);
-
     int err = lfs3_trv_open_(lfs3, trv, flags);
-
-    LFS3_TRACE("lfs3_trv_open -> %d", err);
+    LFS3_FSTRACE("lfs3_trv_open -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -20756,12 +20668,10 @@ static int lfs3_trv_close_(lfs3_t *lfs3, lfs3_trv_t *trv) {
 
 int lfs3_trv_close(lfs3_t *lfs3, lfs3_trv_t *trv) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_trv_close(%p, %p)",
+    LFS3_FSTRACE("lfs3_trv_close(%p, %p)",
             (void*)lfs3, (void*)trv);
-
     int err = lfs3_trv_close_(lfs3, trv);
-
-    LFS3_TRACE("lfs3_trv_close -> %d", err);
+    LFS3_FSTRACE("lfs3_trv_close -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -20842,12 +20752,10 @@ static int lfs3_trv_read_(lfs3_t *lfs3, lfs3_trv_t *trv,
 int lfs3_trv_read(lfs3_t *lfs3, lfs3_trv_t *trv,
         struct lfs3_binfo *binfo) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_trv_read(%p, %p, %p)",
+    LFS3_FSTRACE("lfs3_trv_read(%p, %p, %p)",
             (void*)lfs3, (void*)trv, (void*)binfo);
-
     int err = lfs3_trv_read_(lfs3, trv, binfo);
-
-    LFS3_TRACE("lfs3_trv_read -> %d", err);
+    LFS3_FSTRACE("lfs3_trv_read -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -20867,12 +20775,10 @@ static int lfs3_trv_rewind_(lfs3_t *lfs3, lfs3_trv_t *trv) {
 
 int lfs3_trv_rewind(lfs3_t *lfs3, lfs3_trv_t *trv) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_trv_rewind(%p, %p)",
+    LFS3_FSTRACE("lfs3_trv_rewind(%p, %p)",
             (void*)lfs3, (void*)trv);
-
     int err = lfs3_trv_rewind_(lfs3, trv);
-
-    LFS3_TRACE("lfs3_trv_rewind -> %d", err);
+    LFS3_FSTRACE("lfs3_trv_rewind -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -20976,12 +20882,10 @@ static int lfs3_gc_open_(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
 
 int lfs3_gc_open(lfs3_t *lfs3, lfs3_gc_t *gc, uint32_t flags) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_gc_open(%p, %p, 0x%"PRIx32")",
+    LFS3_FSTRACE("lfs3_gc_open(%p, %p, 0x%"PRIx32")",
             (void*)lfs3, (void*)gc, flags);
-
     int err = lfs3_gc_open_(lfs3, gc, flags);
-
-    LFS3_TRACE("lfs3_gc_open -> %d", err);
+    LFS3_FSTRACE("lfs3_gc_open -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -20996,12 +20900,10 @@ static int lfs3_gc_close_(lfs3_t *lfs3, lfs3_gc_t *gc) {
 
 int lfs3_gc_close(lfs3_t *lfs3, lfs3_gc_t *gc) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_gc_close(%p, %p)",
+    LFS3_FSTRACE("lfs3_gc_close(%p, %p)",
             (void*)lfs3, (void*)gc);
-
     int err = lfs3_gc_close_(lfs3, gc);
-
-    LFS3_TRACE("lfs3_gc_close -> %d", err);
+    LFS3_FSTRACE("lfs3_gc_close -> %d", err);
     LFS3_UNLOCK(lfs3->cfg);
     return err;
 }
@@ -21023,12 +20925,10 @@ static lfs3_sblock_t lfs3_gc_write_(lfs3_t *lfs3, lfs3_gc_t *gc,
 lfs3_sblock_t lfs3_gc_write(lfs3_t *lfs3, lfs3_gc_t *gc,
         lfs3_sblock_t steps) {
     LFS3_LOCK(lfs3->cfg);
-    LFS3_TRACE("lfs3_gc_write(%p, %p, %"PRId32")",
+    LFS3_FSTRACE("lfs3_gc_write(%p, %p, %"PRId32")",
             (void*)lfs3, (void*)gc, steps);
-
     lfs3_sblock_t steps_ = lfs3_gc_write_(lfs3, gc, steps);
-
-    LFS3_TRACE("lfs3_gc_write -> %"PRId32, steps_);
+    LFS3_FSTRACE("lfs3_gc_write -> %"PRId32, steps_);
     LFS3_UNLOCK(lfs3->cfg);
     return steps_;
 }

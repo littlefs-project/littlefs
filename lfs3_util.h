@@ -73,37 +73,59 @@
 
 // LFS3_YES_REPAIRDAMAGE implies REPAIRMETADAMAGE + REPAIRDATADAMAGE
 #ifdef LFS3_YES_REPAIRDAMAGE
+#ifndef LFS3_YES_REPAIRMETADAMAGE
 #define LFS3_YES_REPAIRMETADAMAGE
+#endif
+#ifndef LFS3_YES_REPAIRDATADAMAGE
 #define LFS3_YES_REPAIRDATADAMAGE
+#endif
 #endif
 
 // LFS3_YES_* variants imply the relevant LFS3_* macro
 #ifdef LFS3_YES_RDONLY
+#ifndef LFS3_RDONLY
 #define LFS3_RDONLY
 #endif
+#endif
 #ifdef LFS3_YES_REVPERTURB
+#ifndef LFS3_REVPERTURB
 #define LFS3_REVPERTURB
 #endif
+#endif
 #ifdef LFS3_YES_REVNOISE
+#ifndef LFS3_REVNOISE
 #define LFS3_REVNOISE
 #endif
+#endif
 #ifdef LFS3_YES_CKPROGS
+#ifndef LFS3_CKPROGS
 #define LFS3_CKPROGS
 #endif
+#endif
 #ifdef LFS3_YES_CKFETCHES
+#ifndef LFS3_CKFETCHES
 #define LFS3_CKFETCHES
 #endif
+#endif
 #ifdef LFS3_YES_CKMETAPARITY
+#ifndef LFS3_CKMETAPARITY
 #define LFS3_CKMETAPARITY
 #endif
+#endif
 #ifdef LFS3_YES_CKDATACKSUMS
+#ifndef LFS3_CKDATACKSUMS
 #define LFS3_CKDATACKSUMS
 #endif
+#endif
 #ifdef LFS3_YES_GC
+#ifndef LFS3_GC
 #define LFS3_GC
 #endif
+#endif
 #ifdef LFS3_YES_GBMAP
+#ifndef LFS3_GBMAP
 #define LFS3_GBMAP
+#endif
 #endif
 
 // LFS3_NO_LOG disables all logging macros
@@ -172,16 +194,6 @@
 // code footprint
 
 // Logging functions
-#ifndef LFS3_TRACE
-#ifdef LFS3_YES_TRACE
-#define LFS3_TRACE_(fmt, ...) \
-    printf("%s:%d:trace: " fmt "%s\n", __FILE__, __LINE__, __VA_ARGS__)
-#define LFS3_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
-#else
-#define LFS3_TRACE(...)
-#endif
-#endif
-
 #ifndef LFS3_DEBUG
 #ifndef LFS3_NO_DEBUG
 #define LFS3_DEBUG_(fmt, ...) \
@@ -219,6 +231,33 @@
 #define LFS3_ERROR(...) LFS3_ERROR_(__VA_ARGS__, "")
 #else
 #define LFS3_ERROR(...)
+#endif
+#endif
+
+// Tracing functions
+#ifndef LFS3_TRACE
+#ifdef LFS3_YES_TRACE
+#define LFS3_TRACE_(fmt, ...) \
+    printf("%s:%d:trace: " fmt "%s\n", __FILE__, __LINE__, __VA_ARGS__)
+#define LFS3_TRACE(...) LFS3_TRACE_(__VA_ARGS__, "")
+#else
+#define LFS3_TRACE(...)
+#endif
+#endif
+
+#ifndef LFS3_FSTRACE
+#ifndef LFS3_NO_FSTRACE
+#define LFS3_FSTRACE(...) LFS3_TRACE(__VA_ARGS__)
+#else
+#define LFS3_FSTRACE(...)
+#endif
+#endif
+
+#ifndef LFS3_BDTRACE
+#ifndef LFS3_NO_BDTRACE
+#define LFS3_BDTRACE(...) LFS3_TRACE(__VA_ARGS__)
+#else
+#define LFS3_BDTRACE(...)
 #endif
 #endif
 
