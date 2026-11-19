@@ -2363,10 +2363,22 @@ fixmlist:;
     // our mdir.
     lfs_block_t oldpair[2] = {pair[0], pair[1]};
     for (struct lfs_mlist *d = lfs->mlist; d; d = d->next) {
-        if (lfs_pair_cmp(d->m.pair, oldpair) == 0) {
+        int begin = 0;
+        for (int move = 0; move < attrcount; move++) {
+            if (lfs_tag_type3(attrs[move].tag) == LFS_FROM_MOVE &&
+                    d->type == LFS_TYPE_REG &&
+                    d->id == lfs_tag_size(attrs[move].tag) &&
+                    lfs_pair_cmp(d->m.pair,
+                        ((const lfs_mdir_t*)attrs[move].buffer)->pair) == 0) {
+                d->id = lfs_tag_id(attrs[move].tag);
+                begin = move + 1;
+                break;
+            }
+        }
+        if (begin > 0 || lfs_pair_cmp(d->m.pair, oldpair) == 0) {
             d->m = *dir;
             if (d->m.pair != pair) {
-                for (int i = 0; i < attrcount; i++) {
+                for (int i = begin; i < attrcount; i++) {
                     if (lfs_tag_type3(attrs[i].tag) == LFS_TYPE_DELETE &&
                             d->id == lfs_tag_id(attrs[i].tag) &&
                             d->type != LFS_TYPE_DIR) {
