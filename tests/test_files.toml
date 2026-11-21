@@ -537,3 +537,67 @@ code = '''
     }
     lfs_unmount(&lfs) => 0;
 '''
+
+# a file opened right after a commit that ended in the last prog unit of its
+# directory's block sees the directory as not erased, so its first sync must
+# compact, but once that compaction has erased and written a fresh block,
+# later syncs should append again instead of compacting on every sync
+[cases.test_files_reopen_sync_compaction]
+defines.NAMES = 16
+defines.N = 32
+if = 'PROG_SIZE < BLOCK_SIZE'
+code = '''
+    // the name's length shifts where in the block each commit ends, so try
+    // a few until a commit ends in the block's last prog unit
+    bool found = false;
+    for (lfs_size_t n = 1; n <= NAMES && !found; n++) {
+        char path[1024];
+        memset(path, 'x', n);
+        path[n] = '\0';
+
+        lfs_t lfs;
+        lfs_format(&lfs, cfg) => 0;
+        lfs_mount(&lfs, cfg) => 0;
+        lfs_file_t file;
+        lfs_file_open(&lfs, &file, path,
+                LFS_O_WRONLY | LFS_O_CREAT) => 0;
+        lfs_file_close(&lfs, &file) => 0;
+
+        // one sync per reopen, until a reopen fetches the directory as
+        // not erased, two blocks' worth of syncs is plenty
+        for (lfs_size_t i = 0; i < 2*BLOCK_SIZE/lfs_max(PROG_SIZE, 16); i++) {
+            lfs_file_open(&lfs, &file, path, LFS_O_WRONLY) => 0;
+            if (!file.m.erased) {
+                found = true;
+                break;
+            }
+            lfs_file_write(&lfs, &file, "a", 1) => 1;
+            lfs_file_close(&lfs, &file) => 0;
+        }
+
+        if (found) {
+            lfs_emubd_sio_t erased = lfs_emubd_erased(cfg);
+            for (lfs_size_t i = 0; i < N; i++) {
+                lfs_file_rewind(&lfs, &file) => 0;
+                lfs_file_write(&lfs, &file, "b", 1) => 1;
+                lfs_file_sync(&lfs, &file) => 0;
+            }
+            lfs_emubd_sio_t erases
+                    = (lfs_emubd_erased(cfg) - erased) / BLOCK_SIZE;
+            lfs_file_close(&lfs, &file) => 0;
+
+            // each compaction should leave room for more than one commit,
+            // so N syncs should cost well under N erases
+            assert(erases < N/2);
+
+            uint8_t buffer[1];
+            lfs_file_open(&lfs, &file, path, LFS_O_RDONLY) => 0;
+            lfs_file_read(&lfs, &file, buffer, 1) => 1;
+            assert(buffer[0] == 'b');
+            lfs_file_close(&lfs, &file) => 0;
+        }
+        lfs_unmount(&lfs) => 0;
+    }
+    // make sure we actually reached the state
+    assert(found);
+'''

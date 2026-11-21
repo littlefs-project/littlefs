@@ -2085,6 +2085,8 @@ static int lfs_dir_compact(lfs_t *lfs,
             dir->count = end - begin;
             dir->off = commit.off;
             dir->etag = commit.ptag;
+            // we just erased this block, so the rest of it is erased
+            dir->erased = true;
             // update gstate
             lfs->gdelta = (lfs_gstate_t){0};
             if (!relocated) {
